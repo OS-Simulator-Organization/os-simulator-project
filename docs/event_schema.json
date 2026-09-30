@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OSSimulatorEventRecord",
+  "type": "object",
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "description": "Unique identifier for the discrete event log."
+    },
+    "timestamp": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Logical clock tick when event occurred."
+    },
+    "manager": {
+      "type": "string",
+      "enum": [
+        "PROCESS_MANAGER",
+        "MEMORY_MANAGER",
+        "FILE_SYSTEM_MANAGER",
+        "SECURITY_MANAGER",
+        "DEVICE_MANAGER",
+        "NETWORK_MANAGER",
+        "SIMULATION_ENGINE"
+      ],
+      "description": "The specific OS manager sub-system producing the event."
+    },
+    "event_type": {
+      "type": "string",
+      "description": "The type of event (e.g., CPU_PREEMPT, PAGE_FAULT, ACCESS_DENIED)."
+    },
+    "entity_id": {
+      "type": "string",
+      "description": "Unique ID of the entity affected in the Shared Data Model (e.g., PID, Path, Frame ID)."
+    },
+    "action": {
+      "type": "string",
+      "description": "Action performed (e.g., ALLOCATE, FREED, READ, WRITE, INTERRUPT)."
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["SUCCESS", "FAILED", "DENIED", "PENDING"],
+      "description": "Outcome status of the requested action."
+    },
+    "details": {
+      "type": "object",
+      "description": "Extra details and metrics tailored to the specific type of event."
+    }
+  },
+  "required": [
+    "event_id",
+    "timestamp",
+    "manager",
+    "event_type",
+    "entity_id",
+    "action",
+    "outcome"
+  ]
+}
