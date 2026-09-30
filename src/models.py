@@ -17,6 +17,23 @@ class DeviceType(Enum):
     KEYBOARD = "KEYBOARD" # Input device (uses FCFS)
 
 
+class DeviceOperation(Enum):
+    READ = "READ"
+    WRITE = "WRITE"
+    EXECUTE = "EXECUTE"
+
+class DeviceRequestStatus(Enum):
+    PENDING = "PENDING"
+    IN_PROGRESS = "IN_PROGRESS"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED" 
+
+class PacketStatus(Enum):
+    QUEUED = "QUEUED"
+    TRANSMITTING = "TRANSMITTING"
+    DELIVERED = "DELIVERED"
+    DROPPED = "DROPPED"
+
 # 1. PROCESS MANAGER ENTITIES
 @dataclass
 class Process:
@@ -89,7 +106,7 @@ class DeviceRequest:
     device_id: str             # Target device ID (e.g., "DISK_1")
     process_id: str            
     operation_type: str        
-    status: str = "PENDING"    # "PENDING", "IN_PROGRESS", "COMPLETED", "FAILED"
+    status:DeviceRequestStatus = DeviceRequestStatus.PENDING
 
 
 
@@ -103,4 +120,4 @@ class Packet:
     payload_size: int          # Packet size in bytes
     hop_limit: int = 64        # Time-To-Live (decrements on each hop)
     creation_time: int = 0     
-    status: str = "QUEUED"     # "QUEUED", "TRANSMITTING", "DELIVERED", "DROPPED"
+    status: PacketStatus = PacketStatus.QUEUED
