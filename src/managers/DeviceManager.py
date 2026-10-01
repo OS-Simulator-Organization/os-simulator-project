@@ -11,7 +11,7 @@ class DeviceManager(BaseManager):
     """
 
     def __init__(self):
-        super().__init__("device_manager")
+        super().__init__("Device")
         self.devices: Dict[str, Dict[str, Any]] = {
             "DISK_1": {"type": DeviceType.DISK, "status": "AVAILABLE", "head_position": 0},
             "PRINTER_1": {"type": DeviceType.PRINTER, "status": "AVAILABLE", "head_position": 0},

@@ -11,7 +11,7 @@ class SecurityManager(BaseManager):
     """
 
     def __init__(self):
-        super().__init__("security_manager")
+        super().__init__("Security")
         self.users: Dict[str, User] = {
             "u_admin": User(user_id="u_admin", username="admin", role="ADMIN", permissions=["r", "w", "x", "admin"]),
             "u_guest": User(user_id="u_guest", username="guest", role="GUEST", permissions=["r"])
