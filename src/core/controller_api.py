@@ -6,7 +6,7 @@ state that does not allow them raise ControllerStateError.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, List, Optional, Protocol
+from typing import Dict, FrozenSet, List, Optional, Protocol
 
 from src.core.events import EventRecord
 
@@ -89,8 +89,11 @@ class ControllerStateError(RuntimeError):
 
 
 class ControllerAPI(Protocol):
+    supported_policies: FrozenSet[SchedulingPolicy]
+
     def load(self, config: RunConfig) -> Snapshot:
-        """Start a new run at tick 0. Raises ValueError if config.validate() fails."""
+        """Start a new run at tick 0. Raises ValueError if config.validate() fails
+        or its policy is not in supported_policies."""
         ...
 
     def step(self) -> StepResult:
