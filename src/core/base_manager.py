@@ -1,5 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List
 from src.core.events import EventRecord
 
 class BaseManager(ABC):
@@ -23,12 +25,21 @@ class BaseManager(ABC):
         pass
 
     @abstractmethod
+    @abstractmethod
     def reset(self) -> None:
         """Return the manager to a known initial state."""
         pass
 
     @abstractmethod
+    @abstractmethod
     def step(self, current_time: float) -> List[EventRecord]:
+        """
+        Advance deterministically by one step/tick and return 
+        zero or more shared EventRecords generated during execution.
+        """
+        pass
+
+    @abstractmethod
         """
         Advance deterministically by one step/tick and return 
         zero or more shared EventRecords generated during execution.
@@ -41,20 +52,24 @@ class BaseManager(ABC):
         pass
 
     @abstractmethod
+    @abstractmethod
     def snapshot(self) -> Dict[str, Any]:
         """Return a serializable dictionary representing current internal state for UI rendering."""
         pass
 
+    @abstractmethod
     @abstractmethod
     def metrics(self) -> Dict[str, Any]:
         """Return defined operational measurements with standard units (e.g., hit rate, turnaround time)."""
         pass
 
     @abstractmethod
+    @abstractmethod
     def validate(self) -> List[str]:
         """Validate internal configuration and state; return a list of error or warning strings."""
         pass
 
+    @abstractmethod
     @abstractmethod
     def export(self, export_format: str = "json") -> Any:
         """Produce results, event metrics, and state data in an approved format (e.g., JSON, CSV)."""

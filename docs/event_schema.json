@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EventRecord",
+  "type": "object",
+  "description": "Schema definition for shared operating system event records across all manager modules.",
+  "required": [
+    "timestamp",
+    "manager",
+    "event_type",
+    "entity_id",
+    "action",
+    "previous_state",
+    "new_state",
+    "outcome"
+  ],
+  "properties": {
+    "timestamp": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Simulation time clock tick or timestamp when the event occurred."
+    },
+    "manager": {
+      "type": "string",
+      "enum": [
+        "Process",
+        "Memory",
+        "File",
+        "Security",
+        "Device",
+        "Network",
+        "Parallel"
+      ],
+      "description": "The operating system manager that emitted the event."
+    },
+    "event_type": {
+      "type": "string",
+      "description": "The category or class of event (e.g., SCHEDULING, PAGE_FAULT, FILE_IO, AUTHENTICATION)."
+    },
+    "entity_id": {
+      "type": "string",
+      "description": "Identifier for the target process, thread, frame, node, file, or packet."
+    },
+    "action": {
+      "type": "string",
+      "description": "Operation or step executed by the manager."
+    },
+    "previous_state": {
+      "type": "string",
+      "description": "State of the entity prior to this event."
+    },
+    "new_state": {
+      "type": "string",
+      "description": "State of the entity after this event."
+    },
+    "outcome": {
+      "type": "string",
+      "enum": ["SUCCESS", "FAILURE", "BLOCKED", "DENIED", "PENDING"],
+      "description": "Result status of the action."
+    },
+    "duration_or_cost": {
+      "type": "number",
+      "default": 0.0,
+      "description": "Simulated latency, execution duration, or overhead cost associated with the event."
+    },
+    "explanatory_message": {
+      "type": "string",
+      "default": "",
+      "description": "Human-readable detail message for audit logs and UI logs."
+    },
+    "correlation_id": {
+      "type": ["string", "null"],
+      "default": null,
+      "description": "ID used to correlate cross-manager event chains across integrated scenarios."
+    }
+  },
+  "additionalProperties": false
+}
