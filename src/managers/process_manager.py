@@ -10,6 +10,7 @@ class ProcessManager(BaseManager):
         Initializes all object fields to defaults
         Might change later depening on what bahavior we want
         """
+        super().__init__("Process")
         self.algorithm: str = "FCFS"             
         self.quantum: int = 4
         self.context_switch_cost: int = 0

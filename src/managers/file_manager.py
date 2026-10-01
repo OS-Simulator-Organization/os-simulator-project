@@ -11,6 +11,7 @@ class FileManager(BaseManager):
         Initializes all object fields to defaults
         Might change later depening on what bahavior we want
         """
+        super().__init__("File")
         self.config: Dict[str, Any] = {}
         self.current_time: float = 0.0
         self.root: Optional[FileNode] = None

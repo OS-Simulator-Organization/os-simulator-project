@@ -11,6 +11,7 @@ class MemoryManager(BaseManager):
         Initializes all object fields to defaults
         Might change later depening on what bahavior we want
         """
+        super().__init__("Memory")
         self.config: Dict[str, Any] = {}
         self.current_time: float = 0.0
         self.total_frames: int = 0
