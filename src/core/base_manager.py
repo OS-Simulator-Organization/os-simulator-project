@@ -7,6 +7,10 @@ class BaseManager(ABC):
     Abstract Base Class enforcing the mandatory Manager API Contract
     """
 
+    def __init__(self, name: str):
+        """name must match a manager value in docs/event_schema.json, e.g. "Process"."""
+        self.name = name
+
     @abstractmethod
     def configure(self, config: Dict[str, Any]) -> None:
         """Validate and apply manager-specific configuration"""

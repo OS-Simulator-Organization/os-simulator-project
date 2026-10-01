@@ -4,9 +4,9 @@ from dataclasses import dataclass, asdict
 from typing import Optional, Dict, Any
 import jsonschema
 
-# Resolve path to docs/events_schema.json relative to src/core/events.py
+# Resolve path to docs/event_schema.json relative to src/core/events.py
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-SCHEMA_PATH = os.path.join(BASE_DIR, "docs", "events_schema.json")
+SCHEMA_PATH = os.path.join(BASE_DIR, "docs", "event_schema.json")
 
 def load_event_schema() -> Dict[str, Any]:
     """Loads the JSON schema definition for event validation."""
@@ -34,7 +34,7 @@ class EventRecord:
         return asdict(self)
 
     def validate(self) -> bool:
-        """Validates this record instance against the events_schema.json."""
+        """Validates this record instance against the event_schema.json."""
         schema = load_event_schema()
         jsonschema.validate(instance=self.to_dict(), schema=schema)
         return True
