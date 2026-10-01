@@ -1,36 +1,32 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List
 from src.core.events import EventRecord
 
 class BaseManager(ABC):
     """
-    Abstract Base Class defining the mandatory Manager API Contract (Appendix A).
-    All OS system managers must inherit from this class.
+    Abstract Base Class enforcing the mandatory Manager API Contract
     """
 
     def __init__(self, name: str):
-        self.name: str = name
-        self.is_configured: bool = False
+        """name must match a manager value in docs/event_schema.json, e.g. "Process"."""
+        self.name = name
+        self.is_configured = False
 
     @abstractmethod
     def configure(self, config: Dict[str, Any]) -> None:
-        """Validate and apply manager-specific configuration (e.g., page size, quantum)."""
+        """Validate and apply manager-specific configuration"""
         pass
 
     @abstractmethod
     def load(self, input_data: Any) -> None:
-        """Import a workload or scenario asset without mutating unrelated managers."""
+        """Import a workload or scenario asset without mutating unrelated managers"""
         pass
 
-    @abstractmethod
     @abstractmethod
     def reset(self) -> None:
-        """Return the manager to a known initial state."""
+        """Return the manager to a known initial state"""
         pass
 
-    @abstractmethod
     @abstractmethod
     def step(self, current_time: float) -> List[EventRecord]:
         """
@@ -40,37 +36,26 @@ class BaseManager(ABC):
         pass
 
     @abstractmethod
-        """
-        Advance deterministically by one step/tick and return 
-        zero or more shared EventRecords generated during execution.
-        """
-        pass
-
-    @abstractmethod
     def run(self, stop_condition: Any = None) -> List[EventRecord]:
-        """Advance execution until completion or a requested limit/condition is reached."""
+        """Advance execution until completion or a requested limit/condition is reached"""
         pass
 
-    @abstractmethod
     @abstractmethod
     def snapshot(self) -> Dict[str, Any]:
-        """Return a serializable dictionary representing current internal state for UI rendering."""
+        """Return a serializable dictionary representing current internal state for UI rendering"""
         pass
 
-    @abstractmethod
     @abstractmethod
     def metrics(self) -> Dict[str, Any]:
-        """Return defined operational measurements with standard units (e.g., hit rate, turnaround time)."""
+        """Return defined operational measurements with standard units"""
         pass
 
-    @abstractmethod
     @abstractmethod
     def validate(self) -> List[str]:
-        """Validate internal configuration and state; return a list of error or warning strings."""
+        """Validate internal configuration and state; return a list of error or warning strings"""
         pass
 
     @abstractmethod
-    @abstractmethod
     def export(self, export_format: str = "json") -> Any:
-        """Produce results, event metrics, and state data in an approved format (e.g., JSON, CSV)."""
+        """Produce results, event metrics, and state data in an approved format"""
         pass
