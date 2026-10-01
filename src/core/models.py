@@ -8,7 +8,7 @@ from typing import Dict, List, Optional
 # ==========================================
 
 class ProcessState(Enum):
-    """Lifecycle states for a process[cite: 3]."""
+    """Lifecycle states for a process."""
     NEW = "NEW"
     READY = "READY"
     RUNNING = "RUNNING"
@@ -17,20 +17,18 @@ class ProcessState(Enum):
 
 
 class DeviceType(Enum):
-    """Categories of system devices managed by the device manager[cite: 3]."""
+    """Categories of system devices managed by the device manager."""
     DISK = "DISK"
     PRINTER = "PRINTER"
     KEYBOARD = "KEYBOARD"
 
 
-# ==========================================
 # Entity Models
-# ==========================================
 
-# 1. Process Manager
+# Process Manager
 @dataclass
 class Process:
-    """Represents a process scheduled or managed by the operating system[cite: 3]."""
+    """Represents a process scheduled or managed by the operating system."""
     pid: str
     owner_id: str
     arrival_time: int
@@ -42,10 +40,10 @@ class Process:
     open_files: List[str] = field(default_factory=list)
 
 
-# 2. Memory Manager
+# Memory Manager
 @dataclass
 class PageFrame:
-    """Represents a physical memory frame and its virtual page mapping[cite: 3]."""
+    """Represents a physical memory frame and its virtual page mapping."""
     frame_id: int
     page_number: Optional[int] = None
     pid: Optional[str] = None
@@ -53,10 +51,10 @@ class PageFrame:
     last_accessed: int = 0
 
 
-# 3. File System Manager
+# File System Manager
 @dataclass
 class FileNode:
-    """Represents a file or directory node in the virtual file system tree[cite: 3]."""
+    """Represents a file or directory node in the virtual file system tree."""
     path: str
     name: str
     is_dir: bool
@@ -70,10 +68,10 @@ class FileNode:
     children: Dict[str, "FileNode"] = field(default_factory=dict)
 
 
-# 4. Security Manager
+# Security Manager
 @dataclass
 class User:
-    """Represents a registered user account in the system[cite: 3]."""
+    """Represents a registered user account in the system."""
     user_id: str
     username: str
     role: str
@@ -82,28 +80,28 @@ class User:
 
 @dataclass
 class SecurityContext:
-    """Represents an active authenticated session or security context[cite: 3]."""
+    """Represents an active authenticated session or security context."""
     context_id: str
     user_id: str
     token: str
     effective_permissions: List[str] = field(default_factory=list)
 
 
-# 5. Device Manager
+# Device Manager
 @dataclass
 class DeviceRequest:
-    """Represents an I/O request submitted by a process to a target device[cite: 3]."""
+    """Represents an I/O request submitted by a process to a target device."""
     request_id: str
     device_id: str
     process_id: str
     operation_type: str
-    status: str = "PENDING"  # Supported states: PENDING, IN_PROGRESS, COMPLETED, FAILED[cite: 3]
+    status: str = "PENDING"  # Supported states: PENDING, IN_PROGRESS, COMPLETED, FAILED
 
 
-# 6. Network Manager
+# Network Manager
 @dataclass
 class Packet:
-    """Represents a network packet moving between network nodes[cite: 3]."""
+    """Represents a network packet moving between network nodes."""
     packet_id: str
     source_node: str
     dest_node: str
@@ -111,4 +109,4 @@ class Packet:
     payload_size: int
     hop_limit: int = 64
     creation_time: int = 0
-    status: str = "QUEUED"  # Supported states: QUEUED, TRANSMITTING, DELIVERED, DROPPED[cite: 3]
+    status: str = "QUEUED"  # Supported states: QUEUED, TRANSMITTING, DELIVERED, DROPPED
