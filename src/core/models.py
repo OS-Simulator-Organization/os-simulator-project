@@ -60,8 +60,7 @@ class TaskState(Enum):
 
 # Entity Models
 
-
-# 1. Process Manager
+# Process Manager
 @dataclass
 class Process:
     """Represents a process scheduled or managed by the operating system[cite: 3, 4]."""
@@ -76,7 +75,7 @@ class Process:
     open_files: List[str] = field(default_factory=list)
 
 
-# 2. Memory Manager
+# Memory Manager
 @dataclass
 class PageFrame:
     """Represents a physical memory frame and its virtual page mapping[cite: 3, 4]."""
@@ -87,7 +86,7 @@ class PageFrame:
     last_accessed: int = 0
 
 
-# 3. File System Manager
+# File System Manager
 @dataclass
 class FileNode:
     """Represents a file or directory node in the virtual file system tree[cite: 3, 4]."""
@@ -104,7 +103,7 @@ class FileNode:
     children: Dict[str, "FileNode"] = field(default_factory=dict)
 
 
-# 4. Security Manager
+# Security Manager
 @dataclass
 class User:
     """Represents a registered user account in the system[cite: 3, 4]."""
@@ -123,7 +122,7 @@ class SecurityContext:
     effective_permissions: List[str] = field(default_factory=list)
 
 
-# 5. Device Manager
+# Device Manager
 @dataclass
 class Device:
     """Represents a simulated hardware device[cite: 1]."""
@@ -146,7 +145,7 @@ class DeviceRequest:
     completion_time: Optional[float] = None
 
 
-# 6. Network Manager
+# Network Manager
 @dataclass
 class Packet:
     """Represents a network packet moving between network nodes[cite: 3, 4]."""
@@ -161,7 +160,7 @@ class Packet:
     status: PacketStatus = PacketStatus.QUEUED
 
 
-# 7. Parallel Computing Component
+# Parallel Computing Component
 @dataclass
 class Task:
     """Represents a task/thread scheduled across parallel cores[cite: 1]."""
