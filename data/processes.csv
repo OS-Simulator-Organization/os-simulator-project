@@ -1,0 +1,7 @@
+pid,owner_id,arrival_time,burst_time,priority,memory_address_trace,file_access_path
+P1,u101,0,8,3,0x0040;0x10A0,/docs/notes.txt
+P2,u102,1,4,1,,
+P3,u101,2,9,4,0x0044;0x20B0,
+P4,u102,3,5,2,,
+P5,u103,4,6,3,,/sys/config.json
+P6,u103,6,2,1,0x0050,
