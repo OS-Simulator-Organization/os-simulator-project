@@ -116,7 +116,7 @@ class Packet:
     packet_id: str            
     source_node: str          
     dest_node: str             
-    source_process_id: str     #
+    source_process_id: str     
     payload_size: int          # Packet size in bytes
     hop_limit: int = 64        # Time-To-Live (decrements on each hop)
     creation_time: int = 0     
