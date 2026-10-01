@@ -13,8 +13,6 @@ class MemoryManager(BaseManager):
         """
         self.config: Dict[str, Any] = {}
         self.current_time: float = 0.0
-        
-        # Memory state tracking
         self.total_frames: int = 0
         self.page_size: int = 0
         self.algorithm: str = "FIFO"
