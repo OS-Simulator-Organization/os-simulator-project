@@ -154,7 +154,7 @@ class Packet:
     dest_node: str
     source_process_id: str
     payload_size: int
-    ttl: int = 64
+    hop_limit: int = 64
     priority: int = 0
     creation_time: float = 0.0
     status: PacketStatus = PacketStatus.QUEUED
