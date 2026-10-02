@@ -11,7 +11,7 @@ class NetworkManager(BaseManager):
     """
 
     def __init__(self):
-        super().__init__("network_manager")
+        super().__init__("Network")
         self.nodes: List[str] = ["NodeA", "NodeB", "NodeC"]
         self.links: Dict[str, Dict[str, Any]] = {
             "NodeA-NodeB": {"bandwidth": 100, "latency": 1.0, "status": "UP"},
