@@ -1,4 +1,5 @@
 from src.core.controller_api import RunConfig
+from src.dashboard.config_sidebar import render_process_settings
 from src.dashboard.manager_view import ManagerView
 
 
@@ -14,4 +15,5 @@ VIEW = ManagerView(
     regions=("CPU Gantt chart", "Process table"),
     actions=("Run process tests",),
     describe_config=describe_config,
+    render_sidebar=render_process_settings,
 )
