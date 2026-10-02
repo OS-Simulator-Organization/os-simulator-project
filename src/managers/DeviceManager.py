@@ -1,7 +1,7 @@
 from typing import Dict, List, Any, Optional
 from src.core.base_manager import BaseManager
 from src.core.events import EventRecord
-from src.core.models import DeviceRequest, DeviceType
+from src.core.models import DeviceRequest, DeviceType, DeviceRequestStatus
 
 
 class DeviceManager(BaseManager):
@@ -47,7 +47,7 @@ class DeviceManager(BaseManager):
         # Process active requests nearing completion
         finished_devices = []
         for dev_id, req in list(self.active_requests.items()):
-            req.status = "COMPLETED"
+            req.status = DeviceRequestStatus.COMPLETED
             self.completed_requests.append(req)
             self.devices[dev_id]["status"] = "AVAILABLE"
             finished_devices.append(dev_id)
@@ -74,7 +74,7 @@ class DeviceManager(BaseManager):
             next_req = self._schedule_next_request()
             if next_req and self.devices[next_req.device_id]["status"] == "AVAILABLE":
                 self.request_queue.remove(next_req)
-                next_req.status = "IN_PROGRESS"
+                next_req.status = DeviceRequestStatus.IN_PROGRESS
                 self.active_requests[next_req.device_id] = next_req
                 self.devices[next_req.device_id]["status"] = "BUSY"
 
