@@ -1,7 +1,7 @@
 from typing import Dict, List, Any, Optional
 from src.core.base_manager import BaseManager
 from src.core.events import EventRecord
-from src.core.models import Packet
+from src.core.models import Packet, PacketStatus
 
 
 class NetworkManager(BaseManager):
@@ -48,7 +48,7 @@ class NetworkManager(BaseManager):
 
         # TTL Validation check
         if pkt.hop_limit <= 0:
-            pkt.status = "DROPPED"
+            pkt.status = PacketStatus.DROPPED
             self.dropped_packets.append(pkt)
             events.append(
                 EventRecord(
@@ -67,7 +67,7 @@ class NetworkManager(BaseManager):
 
         # Transmission step
         pkt.hop_limit -= 1
-        pkt.status = "DELIVERED"
+        pkt.status = PacketStatus.DELIVERED
         self.delivered_packets.append(pkt)
 
         events.append(

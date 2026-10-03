@@ -1,7 +1,7 @@
 from typing import Dict, List, Any, Optional
 from src.core.base_manager import BaseManager
 from src.core.events import EventRecord
-from src.core.models import DeviceRequest, DeviceType
+from src.core.models import DeviceRequest, DeviceType, DeviceRequestStatus, DeviceState
 
 
 class DeviceManager(BaseManager):
@@ -13,9 +13,9 @@ class DeviceManager(BaseManager):
     def __init__(self):
         super().__init__("Device")
         self.devices: Dict[str, Dict[str, Any]] = {
-            "DISK_1": {"type": DeviceType.DISK, "status": "AVAILABLE", "head_position": 0},
-            "PRINTER_1": {"type": DeviceType.PRINTER, "status": "AVAILABLE", "head_position": 0},
-            "KEYBOARD_1": {"type": DeviceType.KEYBOARD, "status": "AVAILABLE", "head_position": 0},
+            "DISK_1": {"type": DeviceType.DISK, "status": DeviceState.AVAILABLE, "head_position": 0},
+            "PRINTER_1": {"type": DeviceType.PRINTER, "status": DeviceState.AVAILABLE, "head_position": 0},
+            "KEYBOARD_1": {"type": DeviceType.KEYBOARD, "status": DeviceState.AVAILABLE, "head_position": 0},
         }
         self.request_queue: List[DeviceRequest] = []
         self.completed_requests: List[DeviceRequest] = []
@@ -38,7 +38,7 @@ class DeviceManager(BaseManager):
         self.head_movements.clear()
         self.total_seek_distance = 0
         for dev in self.devices.values():
-            dev["status"] = "AVAILABLE"
+            dev["status"] = DeviceState.AVAILABLE
             dev["head_position"] = 0
 
     def step(self, current_time: float) -> List[EventRecord]:
@@ -47,9 +47,9 @@ class DeviceManager(BaseManager):
         # Process active requests nearing completion
         finished_devices = []
         for dev_id, req in list(self.active_requests.items()):
-            req.status = "COMPLETED"
+            req.status = DeviceRequestStatus.COMPLETED
             self.completed_requests.append(req)
-            self.devices[dev_id]["status"] = "AVAILABLE"
+            self.devices[dev_id]["status"] = DeviceState.AVAILABLE
             finished_devices.append(dev_id)
 
             events.append(
@@ -72,11 +72,11 @@ class DeviceManager(BaseManager):
         # Schedule pending requests from queue
         if self.request_queue:
             next_req = self._schedule_next_request()
-            if next_req and self.devices[next_req.device_id]["status"] == "AVAILABLE":
+            if next_req and self.devices[next_req.device_id]["status"] == DeviceState.AVAILABLE:
                 self.request_queue.remove(next_req)
-                next_req.status = "IN_PROGRESS"
+                next_req.status = DeviceRequestStatus.IN_PROGRESS
                 self.active_requests[next_req.device_id] = next_req
-                self.devices[next_req.device_id]["status"] = "BUSY"
+                self.devices[next_req.device_id]["status"] = DeviceState.BUSY
 
                 # Track movement for disk plot UI
                 if self.devices[next_req.device_id]["type"] == DeviceType.DISK:
