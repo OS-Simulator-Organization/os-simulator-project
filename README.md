@@ -3,6 +3,10 @@
 
 An interactive, multi-layered Operating System simulator built for OS class.
 
+## Live Demo
+- View the latest, live version of our simulator dashboard here: https://csc-301-os-simulator.streamlit.app
+- Deployed using [Streamlit Community Cloud](https://streamlit.io/cloud)
+
 ## Project Structure
 - `src/`: Core Python modules (Shared Data Model, Event Schema, Managers, Dashboard)
 - `docs/`: Architecture diagrams, data specs, and project documentation
