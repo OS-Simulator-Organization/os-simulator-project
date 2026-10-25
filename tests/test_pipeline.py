@@ -3,16 +3,17 @@ import json
 import pytest
 
 from src.core.controller import SimulationController
+from src.core.controller_api import (RunConfig, ProcessConfig, SchedulingPolicy)
 from src.core.DummyProcessManager import DummyProcessManager
-from src.core.events import SCHEMA_PATH
+from src.core.events import SCHEMA_PATH, EventRecord
 from src.core.models import Process
 from src.managers.file_manager import FileManager
 from src.managers.memory_manager import MemoryManager
 from src.managers.process_manager import ProcessManager
 
 
-def make_controller():
-    controller = SimulationController(seed=42)
+def make_controller(seed: int = 42) -> SimulationController:
+    controller = SimulationController(seed=seed)
     manager = DummyProcessManager()
     controller.register_manager(manager)
     manager.load([
@@ -38,6 +39,42 @@ def test_events_match_schema():
     for event in controller.step() + controller.step():
         assert event.validate()
 
+def test_deterministic_seed_replay():
+    """Verifies that running two independent simulation instances with seed=42 produces identical event logs."""
+    controller1 = make_controller(seed=42)
+    events1 = controller1.run(max_ticks=10)
+
+    controller2 = make_controller(seed=42)
+    events2 = controller2.run(max_ticks=10)
+
+    assert len(events1) == len(events2)
+    for e1, e2 in zip(events1, events2):
+        assert e1.timestamp == e2.timestamp
+        assert e1.event_type == e2.event_type
+        assert e1.entity_id == e2.entity_id
+        assert e1.action == e2.action
+
+
+def test_out_of_order_event_scheduling():
+    """Verifies that events scheduled out-of-order in the engine queue are popped chronologically."""
+    controller = SimulationController(seed=42)
+    
+    evt_future = EventRecord(
+        timestamp=10, manager="Process", event_type="TEST", entity_id="P_LATE",
+        action="RUN", previous_state="READY", new_state="RUNNING", outcome="SUCCESS"
+    )
+    evt_early = EventRecord(
+        timestamp=0, manager="Process", event_type="TEST", entity_id="P_EARLY",
+        action="RUN", previous_state="NEW", new_state="READY", outcome="SUCCESS"
+    )
+
+    controller.schedule_event(evt_future)
+    controller.schedule_event(evt_early)
+
+    step_events = controller.step()
+    assert len(step_events) >= 1
+    assert step_events[0].entity_id == "P_EARLY"
+    assert controller.clock == 1
 
 
 MISSING_ABSTRACT_METHODS = "missing BaseManager abstract methods, see #34"
