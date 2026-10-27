@@ -5,6 +5,7 @@ import random
 from typing import Dict, List, Any, Optional, Set
 from src.core.base_manager import BaseManager
 from src.core.events import EventRecord
+from src.core.models import Process
 from src.core.importers import load_and_validate_processes
 
 from src.core.controller_api import (
@@ -19,6 +20,8 @@ from src.core.controller_api import (
     Snapshot,
     StepResult,
 )
+
+from src.managers.process_manager import ProcessManager
 
 class SimulationController:
     """
@@ -150,6 +153,9 @@ class RealController:
 
     def __init__(self, engine: Optional[SimulationController] = None):
         self.engine = engine if engine else SimulationController()
+
+        self.engine.register_manager(ProcessManager())
+
         self.current_config: Optional[RunConfig] = None
         self.run_id: Optional[str] = None
         self.status: RunStatus = RunStatus.NOT_LOADED
@@ -169,13 +175,25 @@ class RealController:
         self.engine.set_seed(config.seed)
 
         # Configure managers with new run settings
-        proc_mgr = self.engine.get_manager("process_manager")
+        proc_mgr = self.engine.get_manager("Process")
         if proc_mgr:
             proc_mgr.configure({
                 "policy": config.process.policy.value,
                 "quantum_ms": config.process.quantum_ms,
                 "context_switch_ms": config.process.context_switch_ms,
+                "aging_interval": config.process.aging_interval,
             })
+            # Test hardcoded values
+            baseline_workload = [
+                Process(pid="P1", arrival_time=0, burst_time=8, priority=3, owner_id=1),
+                Process(pid="P2", arrival_time=1, burst_time=4, priority=1, owner_id=1),
+                Process(pid="P3", arrival_time=2, burst_time=9, priority=4, owner_id=1),
+                Process(pid="P4", arrival_time=3, burst_time=5, priority=2, owner_id=1),
+            ]
+            proc_mgr.load(baseline_workload)
+
+
+
             workload_file = getattr(config.process, "workload_file", "data/processes.csv")
             try:
                 processes = load_and_validate_processes(workload_file)
@@ -183,26 +201,27 @@ class RealController:
                     proc_mgr.load_processes(processes)
             except Exception:
                 pass
+            
         self.status = RunStatus.READY
         return self.snapshot()
 
     def step(self) -> StepResult:
         """Advances simulation by 1 step/tick. Requires status READY."""
-        if self.status not in (RunStatus.READY, RunStatus.PAUSED):
+        if self.status not in (RunStatus.READY, RunStatus.PAUSED, RunStatus.RUNNING):
             raise ControllerStateError("Cannot step simulation unless status is READY or PAUSED.")
 
         step_events = self.engine.step()
 
         # Check if all work across managers is completed
-        proc_mgr = self.engine.get_manager("process_manager")
-        if proc_mgr and getattr(proc_mgr, "is_finished", lambda: False)():
+        proc_mgr = self.engine.get_manager("Process")
+        if proc_mgr and proc_mgr.is_finished():
             self.status = RunStatus.FINISHED
 
         return StepResult(snapshot=self.snapshot(), events=step_events)
 
     def run(self, until_tick: Optional[int] = None) -> StepResult:
         """Steps simulation until finished or target tick reached."""
-        if self.status not in (RunStatus.READY, RunStatus.PAUSED):
+        if self.status not in (RunStatus.READY, RunStatus.PAUSED, RunStatus.RUNNING):
             raise ControllerStateError("Cannot run simulation unless status is READY.")
 
         self.status = RunStatus.RUNNING
