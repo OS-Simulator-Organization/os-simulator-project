@@ -3,7 +3,8 @@ import streamlit as st
 from src.core.controller_api import ControllerAPI
 from src.dashboard.config_sidebar import render_global_settings, render_load_panel
 from src.dashboard.manager_view import render_manager_tab, render_sidebar_section
-from src.dashboard.mock_controller import MockController
+#from src.dashboard.mock_controller import MockController
+from src.core.controller import RealController
 from src.dashboard.views import VIEWS
 
 TABS = [
@@ -17,7 +18,7 @@ TABS = [
 
 def get_controller() -> ControllerAPI:
     if "controller" not in st.session_state:
-        st.session_state.controller = MockController()
+        st.session_state.controller = RealController()
     return st.session_state.controller
 
 

@@ -25,7 +25,7 @@ class ProcessManager(BaseManager):
         self.running_process: Optional[Process] = None
         self.ready_queue: List[Process] = []
         self.workload: List[Process] = []
-        self.completed_processes: int = 0
+        self.completed_processes: List[Process] = []
 
         self.idle_time: int = 0
         self.current_time: int = 0
@@ -54,6 +54,12 @@ class ProcessManager(BaseManager):
         """
         Gets total workload from, sets remaining time, process state, and sorts workload by arrival time
         """
+        self.workload.clear()
+        self.ready_queue.clear()
+        self.completed_processes.clear()
+        self.running_process = None
+        self.gantt_ticks.clear()
+        self.current_time = 0
 
         for p in input_data:
             p.state = ProcessState.NEW
@@ -71,6 +77,7 @@ class ProcessManager(BaseManager):
         self.running_process = None
         self.current_time = 0.0
         self.gantt_ticks.clear()
+        self.completed_processes.clear()
     
         # Reset all loaded processes back to their initial state
         for p in self.workload:
@@ -169,33 +176,38 @@ class ProcessManager(BaseManager):
         Return measurements and performance statistics for completed and active processes
         """
         total_processes = len(self.workload)
-        completed = [p for p in self.workload if p.state == ProcessState.TERMINATED]
+        completed_count = len(self.completed_processes)
         
 
         # Calculate averages
-        if self.completed_processes > 0:
-            avg_waiting_time = sum(p.wait_time for p in completed) / self.completed_processes
-            avg_turnaround_time = sum(p.turnaround_time for p in completed) / self.completed_processes
-            avg_response_time = sum(p.response_time for p in completed) / self.completed_processes
+        if completed_count > 0:
+            avg_waiting_time = sum(p.wait_time for p in self.completed_processes) / completed_count
+            avg_turnaround_time = sum(p.turnaround_time for p in self.completed_processes) / completed_count
+            avg_response_time = sum(p.response_time for p in self.completed_processes) / completed_count
         else:
             avg_waiting_time = 0.0
             avg_turnaround_time = 0.0
             avg_response_time = 0.0
-
-        # Completetion time of last process - first start time of first process
-        makespan = completed[-1].completion_time - completed[0].first_start
+        
+        if completed_count > 0:
+            print(completed_count)  
+            max_completion = max(p.completion_time for p in self.completed_processes)
+            min_start = min(p.first_start for p in self.completed_processes)
+            makespan = max_completion - min_start
+        else:
+            makespan = 0.0
         
         # Calculate throughput
-        throughput = (self.completed_processes / makespan) if makespan > 0 else 0.0
+        throughput = (completed_count / makespan) if makespan > 0 else 0.0
 
         # Makespan - idle - switch time
-        useful_execution = makespan - self.idle_time - self.context_switch_time
+        useful_execution = sum(1 for tick in self.gantt_ticks if tick["label"] not in ("idle", "cs"))
 
         utilization = float(useful_execution) / makespan * 100 if makespan > 0 else 0.0
 
         return {
             "total_processes": int(total_processes),
-            "completed_processes": int(self.completed_processes),
+            "completed_processes": int(completed_count),
             "avg_waiting_time": float(avg_waiting_time),
             "avg_turnaround_time": float(avg_turnaround_time),
             "avg_response_time": float(avg_response_time),
@@ -503,13 +515,10 @@ class ProcessManager(BaseManager):
             self.cs_ticks_remaining -= 1
             self.context_switch_time += 1
             self.gantt_ticks.append({
-                "start": self.current_time - 1,
-                "end": self.current_time,
+                "start": self.current_time,
+                "end": self.current_time + 1,
                 "label": "cs"
             })
-
-            if self.cs_ticks_remaining == 0:
-                self._select_work()
 
             return events
 
@@ -523,8 +532,8 @@ class ProcessManager(BaseManager):
 
             # Record tick for the running process
             self.gantt_ticks.append({
-                "start": self.current_time - 1,
-                "end": self.current_time,
+                "start": self.current_time,
+                "end": self.current_time + 1,
                 "label": self.running_process.pid
             })
            
@@ -534,11 +543,11 @@ class ProcessManager(BaseManager):
                 self.running_process = None
 
                 p.state = ProcessState.TERMINATED
-                p.completion_time = self.current_time
+                p.completion_time = self.current_time + 1
                 p.turnaround_time = p.completion_time - p.arrival_time
                 p.response_time = p.first_start - p.arrival_time
                 p.wait_time = p.turnaround_time - p.burst_time
-                self.completed_processes += 1
+                self.completed_processes.append(p)
 
                 # Create termination event
                 events.append(EventRecord(
@@ -546,7 +555,7 @@ class ProcessManager(BaseManager):
                     manager="Process",
                     event_type="PROCESS_TERMINATE",
                     entity_id=p.pid,
-                    action="TERMINATE",
+                    action="EXIT",
                     previous_state="RUNNING",
                     new_state="TERMINATED",
                     outcome="SUCCESS"
@@ -579,10 +588,11 @@ class ProcessManager(BaseManager):
         else:
             self.idle_time += 1
             self.gantt_ticks.append({
-                "start": self.current_time - 1,
-                "end": self.current_time,
+                "start": self.current_time,
+                "end": self.current_time + 1,
                 "label": "idle"
             })
+        return events
 
 
     def _gantt_chart(self) -> str:

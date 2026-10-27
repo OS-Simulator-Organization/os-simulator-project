@@ -24,6 +24,7 @@ class ProcessConfig:
     policy: SchedulingPolicy = SchedulingPolicy.FCFS
     quantum_ms: Optional[int] = None
     context_switch_ms: int = 0
+    aging_interval: int = 0
 
 
 @dataclass(frozen=True)

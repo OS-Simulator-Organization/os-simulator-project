@@ -24,15 +24,18 @@ class ManagerView:
     actions: Tuple[str, ...] = ()
     describe_config: Optional[Callable[[RunConfig], str]] = None
     render_sidebar: Optional[Callable[[], None]] = None
-
+    render_content: Optional[Callable[[Snapshot], None]] = None
 
 def render_manager_tab(view: ManagerView, snapshot: Snapshot, events: List[EventRecord]) -> None:
     _render_header(view, snapshot)
     _render_metrics(view, snapshot)
-    for region in view.regions:
-        with st.container(border=True):
-            st.markdown(f"**{region}**")
-            st.caption("Coming soon.")
+    if view.render_content:
+        view.render_content(snapshot)
+    else:
+        for region in view.regions:
+            with st.container(border=True):
+                st.markdown(f"**{region}**")
+                st.caption("Coming soon.")
     with st.expander("Inputs"):
         st.caption("Not editable yet.")
     with st.expander("Event log"):

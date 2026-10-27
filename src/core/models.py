@@ -69,21 +69,21 @@ class Process:
     arrival_time: int
     burst_time: int
     priority: int
-    remaining_time: int
-    state: ProcessState = ProcessState.NEW
-    dispatches: int = 0
-    preemptions: int = 0
+    remaining_time: int = 0
+    # New fields required by assignment
+    completion_time: int = -1
+    first_start: int = -1
 
     # NEW FIELDS FOR PER PROCESS METRIC CALCULATIONS
-    first_start: int = -1
-    completion_time: int
-
+    dispatches: int = 0
+    preemptions: int = 0
+    
     # These aren't strictly necessary - can be calculated each time they need to be used
     turnaround_time: int = -1
     response_time: int = -1
     wait_time: int = -1
 
-
+    state: ProcessState = ProcessState.NEW
     allocated_frames: List[int] = field(default_factory=list)
     open_files: List[str] = field(default_factory=list)
 

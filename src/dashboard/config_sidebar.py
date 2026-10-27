@@ -16,6 +16,7 @@ SCENARIO = "scenario"
 POLICY = "process_policy"
 QUANTUM = "process_quantum_ms"
 CONTEXT_SWITCH = "process_context_switch_ms"
+AGING_INTERVAL = "process_aging_interval"
 
 SCENARIOS = ["baseline"]
 POLICY_LABELS = {
@@ -37,7 +38,12 @@ def render_process_settings() -> None:
     label = st.selectbox("Scheduling policy", list(POLICIES_BY_LABEL), key=POLICY)
     if POLICIES_BY_LABEL[label] is SchedulingPolicy.ROUND_ROBIN:
         st.number_input("Time quantum (ms)", min_value=1, value=4, step=1, key=QUANTUM)
+    elif POLICIES_BY_LABEL[label] is SchedulingPolicy.PRIORITY:
+        st.number_input("Aging interval (ms)", min_value=0, value=10, step=1, key=AGING_INTERVAL)
+
+    if POLICIES_BY_LABEL[label] in (SchedulingPolicy.ROUND_ROBIN, SchedulingPolicy.SRTF):
         st.number_input("Context switch cost (ms)", min_value=0, value=0, step=1, key=CONTEXT_SWITCH)
+
 
 
 def read_config() -> RunConfig:
@@ -50,7 +56,8 @@ def read_config() -> RunConfig:
         process=ProcessConfig(
             policy=policy,
             quantum_ms=state.get(QUANTUM, 4) if round_robin else None,
-            context_switch_ms=state.get(CONTEXT_SWITCH, 0) if round_robin else 0,
+            context_switch_ms=state.get(CONTEXT_SWITCH, 0),
+            aging_interval=state.get(AGING_INTERVAL, 0),
         ),
     )
 
