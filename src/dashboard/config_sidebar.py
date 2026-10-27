@@ -50,13 +50,14 @@ def read_config() -> RunConfig:
     state = st.session_state
     policy = POLICIES_BY_LABEL[state.get(POLICY, POLICY_LABELS[SchedulingPolicy.FCFS])]
     round_robin = policy is SchedulingPolicy.ROUND_ROBIN
+    srtf = policy is SchedulingPolicy.SRTF
     return RunConfig(
         seed=state.get(SEED, 0),
         scenario_id=state.get(SCENARIO, SCENARIOS[0]),
         process=ProcessConfig(
             policy=policy,
             quantum_ms=state.get(QUANTUM, 4) if round_robin else None,
-            context_switch_ms=state.get(CONTEXT_SWITCH, 0),
+            context_switch_ms=state.get(CONTEXT_SWITCH, 0) if round_robin or srtf else 0 ,
             aging_interval=state.get(AGING_INTERVAL, 0),
         ),
     )

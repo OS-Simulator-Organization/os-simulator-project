@@ -190,7 +190,6 @@ class ProcessManager(BaseManager):
             avg_response_time = 0.0
         
         if completed_count > 0:
-            print(completed_count)  
             max_completion = max(p.completion_time for p in self.completed_processes)
             min_start = min(p.first_start for p in self.completed_processes)
             makespan = max_completion - min_start

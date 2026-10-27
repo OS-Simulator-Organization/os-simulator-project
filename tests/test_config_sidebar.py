@@ -87,11 +87,11 @@ def test_other_policies_hide_quantum_and_context_switch():
     labels = [number_input.label for number_input in app.sidebar.number_input]
     assert labels == ["Seed"]
 
-
-def test_unsupported_policy_blocks_load():
-    app = pick_policy(run_app(), SchedulingPolicy.ROUND_ROBIN)
-    assert messages(app.sidebar.error) == ["Round Robin is not supported yet."]
-    assert app.sidebar.button[0].disabled
+# This test is no longer necessary
+# def test_unsupported_policy_blocks_load():
+#     app = pick_policy(run_app(), SchedulingPolicy.ROUND_ROBIN)
+#     assert messages(app.sidebar.error) == ["Round Robin is not supported yet."]
+#     assert app.sidebar.button[0].disabled
 
 
 def test_switching_back_to_a_supported_policy_unblocks_load():

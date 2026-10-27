@@ -4,6 +4,7 @@ from streamlit.testing.v1 import AppTest
 
 from src.dashboard.app import TABS
 from src.dashboard.mock_controller import MockController
+from src.core.controller import RealController
 from src.dashboard.views import VIEWS
 
 
@@ -31,7 +32,7 @@ def test_controller_survives_reruns():
     app = run_app()
     controller = app.session_state.controller
     app.run()
-    assert isinstance(controller, MockController)
+    assert isinstance(controller, RealController)
     assert app.session_state.controller is controller
 
 

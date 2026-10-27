@@ -193,7 +193,7 @@ class RealController:
             proc_mgr.load(baseline_workload)
 
 
-            
+
             workload_file = getattr(config.process, "workload_file", "data/processes.csv")
             try:
                 processes = load_and_validate_processes(workload_file)
@@ -207,7 +207,7 @@ class RealController:
 
     def step(self) -> StepResult:
         """Advances simulation by 1 step/tick. Requires status READY."""
-        if self.status not in (RunStatus.READY, RunStatus.PAUSED):
+        if self.status not in (RunStatus.READY, RunStatus.PAUSED, RunStatus.RUNNING):
             raise ControllerStateError("Cannot step simulation unless status is READY or PAUSED.")
 
         step_events = self.engine.step()
@@ -221,7 +221,7 @@ class RealController:
 
     def run(self, until_tick: Optional[int] = None) -> StepResult:
         """Steps simulation until finished or target tick reached."""
-        if self.status not in (RunStatus.READY, RunStatus.PAUSED):
+        if self.status not in (RunStatus.READY, RunStatus.PAUSED, RunStatus.RUNNING):
             raise ControllerStateError("Cannot run simulation unless status is READY.")
 
         self.status = RunStatus.RUNNING
