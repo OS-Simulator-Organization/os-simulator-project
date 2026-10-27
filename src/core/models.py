@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 # System States and Enumerations
 
 class ProcessState(Enum):
-    """Lifecycle states for a process[cite: 3, 4]."""
+    """Lifecycle states for a process"""
     NEW = "NEW"
     READY = "READY"
     RUNNING = "RUNNING"
@@ -14,7 +14,7 @@ class ProcessState(Enum):
 
 
 class DeviceType(Enum):
-    """Categories of system devices managed by the device manager[cite: 3, 4]."""
+    """Categories of system devices managed by the device manager"""
     DISK = "DISK"
     PRINTER = "PRINTER"
     KEYBOARD = "KEYBOARD"
@@ -23,7 +23,7 @@ class DeviceType(Enum):
 
 
 class DeviceState(Enum):
-    """Operational states for physical/simulated devices[cite: 1]."""
+    """Operational states for physical/simulated devices"""
     AVAILABLE = "AVAILABLE"
     BUSY = "BUSY"
     OFFLINE = "OFFLINE"
@@ -31,7 +31,7 @@ class DeviceState(Enum):
 
 
 class DeviceRequestStatus(Enum):
-    """Lifecycle states for an I/O device request[cite: 1, 3, 4]."""
+    """Lifecycle states for an I/O device request"""
     PENDING = "PENDING"
     IN_PROGRESS = "IN_PROGRESS"
     COMPLETED = "COMPLETED"
@@ -40,7 +40,7 @@ class DeviceRequestStatus(Enum):
 
 
 class PacketStatus(Enum):
-    """Lifecycle states for a network packet[cite: 1, 3, 4]."""
+    """Lifecycle states for a network packet"""
     QUEUED = "QUEUED"
     TRANSMITTING = "TRANSMITTING"
     DELIVERED = "DELIVERED"
@@ -49,7 +49,7 @@ class PacketStatus(Enum):
 
 
 class TaskState(Enum):
-    """Lifecycle states for parallel tasks/threads[cite: 1]."""
+    """Lifecycle states for parallel tasks/threads"""
     NEW = "NEW"
     READY = "READY"
     RUNNING = "RUNNING"
@@ -63,7 +63,7 @@ class TaskState(Enum):
 # Process Manager
 @dataclass
 class Process:
-    """Represents a process scheduled or managed by the operating system[cite: 3, 4]."""
+    """Represents a process scheduled or managed by the operating system"""
     pid: str
     owner_id: str
     arrival_time: int
@@ -71,6 +71,19 @@ class Process:
     priority: int
     remaining_time: int
     state: ProcessState = ProcessState.NEW
+    dispatches: int = 0
+    preemptions: int = 0
+
+    # NEW FIELDS FOR PER PROCESS METRIC CALCULATIONS
+    first_start: int = -1
+    completion_time: int
+
+    # These aren't strictly necessary - can be calculated each time they need to be used
+    turnaround_time: int = -1
+    response_time: int = -1
+    wait_time: int = -1
+
+
     allocated_frames: List[int] = field(default_factory=list)
     open_files: List[str] = field(default_factory=list)
 
@@ -78,7 +91,7 @@ class Process:
 # Memory Manager
 @dataclass
 class PageFrame:
-    """Represents a physical memory frame and its virtual page mapping[cite: 3, 4]."""
+    """Represents a physical memory frame and its virtual page mapping"""
     frame_id: int
     page_number: Optional[int] = None
     pid: Optional[str] = None
@@ -89,7 +102,7 @@ class PageFrame:
 # File System Manager
 @dataclass
 class FileNode:
-    """Represents a file or directory node in the virtual file system tree[cite: 3, 4]."""
+    """Represents a file or directory node in the virtual file system tree"""
     path: str
     name: str
     is_dir: bool
@@ -106,7 +119,7 @@ class FileNode:
 # Security Manager
 @dataclass
 class User:
-    """Represents a registered user account in the system[cite: 3, 4]."""
+    """Represents a registered user account in the system"""
     user_id: str
     username: str
     role: str
@@ -115,7 +128,7 @@ class User:
 
 @dataclass
 class SecurityContext:
-    """Represents an active authenticated session or security context[cite: 3, 4]."""
+    """Represents an active authenticated session or security context"""
     context_id: str
     user_id: str
     token: str
@@ -125,7 +138,7 @@ class SecurityContext:
 # Device Manager
 @dataclass
 class Device:
-    """Represents a simulated hardware device[cite: 1]."""
+    """Represents a simulated hardware device"""
     device_id: str
     device_type: DeviceType
     state: DeviceState = DeviceState.AVAILABLE
@@ -134,7 +147,7 @@ class Device:
 
 @dataclass
 class DeviceRequest:
-    """Represents an I/O request submitted by a process to a target device[cite: 3, 4]."""
+    """Represents an I/O request submitted by a process to a target device"""
     request_id: str
     device_id: str
     process_id: str
@@ -148,7 +161,7 @@ class DeviceRequest:
 # Network Manager
 @dataclass
 class Packet:
-    """Represents a network packet moving between network nodes[cite: 3, 4]."""
+    """Represents a network packet moving between network nodes"""
     packet_id: str
     source_node: str
     dest_node: str
@@ -163,7 +176,7 @@ class Packet:
 # Parallel Computing Component
 @dataclass
 class Task:
-    """Represents a task/thread scheduled across parallel cores[cite: 1]."""
+    """Represents a task/thread scheduled across parallel cores"""
     task_id: str
     parent_job_id: str
     arrival_time: float
@@ -176,7 +189,7 @@ class Task:
 
 @dataclass
 class SynchronizationPrimitive:
-    """Represents a lock, semaphore, or barrier for task synchronization[cite: 1]."""
+    """Represents a lock, semaphore, or barrier for task synchronization"""
     primitive_id: str
     type_name: str  # "MUTEX", "SEMAPHORE", "BARRIER"
     is_locked: bool = False
