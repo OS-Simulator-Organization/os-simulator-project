@@ -51,6 +51,7 @@ class RunStatus(Enum):
     NOT_LOADED = "NOT_LOADED"
     READY = "READY"
     FINISHED = "FINISHED"
+    PAUSED = "PAUSED"
 
 
 @dataclass(frozen=True)
