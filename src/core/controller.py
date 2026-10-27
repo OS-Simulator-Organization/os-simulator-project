@@ -5,6 +5,7 @@ import random
 from typing import Dict, List, Any, Optional, Set
 from src.core.base_manager import BaseManager
 from src.core.events import EventRecord
+from src.core.importers import load_and_validate_processes
 
 from src.core.controller_api import (
     #Eventually, we can import all the necessary classes from controller_api.py here. For now, we will import the ones we need.
@@ -100,6 +101,8 @@ class SimulationController:
 
         self.is_running = False
         return all_run_events
+    def pause(self) -> None:
+        self.is_running =False
     
 
     def reset(self) -> None:
@@ -173,14 +176,20 @@ class RealController:
                 "quantum_ms": config.process.quantum_ms,
                 "context_switch_ms": config.process.context_switch_ms,
             })
-
+            workload_file = getattr(config.process, "workload_file", "data/processes.csv")
+            try:
+                processes = load_and_validate_processes(workload_file)
+                if hasattr(proc_mgr, "load_processes"):
+                    proc_mgr.load_processes(processes)
+            except Exception:
+                pass
         self.status = RunStatus.READY
         return self.snapshot()
 
     def step(self) -> StepResult:
         """Advances simulation by 1 step/tick. Requires status READY."""
-        if self.status != RunStatus.READY:
-            raise ControllerStateError("Cannot step simulation unless status is READY.")
+        if self.status not in (RunStatus.READY, RunStatus.PAUSED):
+            raise ControllerStateError("Cannot step simulation unless status is READY or PAUSED.")
 
         step_events = self.engine.step()
 
@@ -193,18 +202,28 @@ class RealController:
 
     def run(self, until_tick: Optional[int] = None) -> StepResult:
         """Steps simulation until finished or target tick reached."""
-        if self.status != RunStatus.READY:
+        if self.status not in (RunStatus.READY, RunStatus.PAUSED):
             raise ControllerStateError("Cannot run simulation unless status is READY.")
 
+        self.status = RunStatus.RUNNING
         accumulated_events: List[EventRecord] = []
-        while self.status == RunStatus.READY:
+        while self.status == RunStatus.RUNNING:
             if until_tick is not None and self.engine.clock >= until_tick:
+                self.status = RunStatus.PAUSED
                 break
             res = self.step()
             accumulated_events.extend(res.events)
+            if self.status == RunStatus.FINISHED:
+                break
 
         return StepResult(snapshot=self.snapshot(), events=accumulated_events)
 
+    def pause(self) -> Snapshot:
+        if self.status == RunStatus.RUNNING:
+            self.status = RunStatus.PAUSED
+        self.engine.pause()
+        return self.snapshot()
+    
     def reset(self) -> Snapshot:
         """Restarts current config at tick 0. Requires loaded run."""
         if self.current_config is None:
