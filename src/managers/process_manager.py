@@ -196,13 +196,17 @@ class ProcessManager(BaseManager):
         else:
             makespan = 0.0
         
-        # Calculate throughput
-        throughput = (completed_count / makespan) if makespan > 0 else 0.0
+        # Elapsed ticks cover the same span as useful_execution, unlike the
+        # makespan of completed processes. One tick is one millisecond.
+        elapsed_ticks = len(self.gantt_ticks)
+
+        # Calculate throughput in processes per second
+        throughput = (1000.0 * completed_count / elapsed_ticks) if elapsed_ticks > 0 else 0.0
 
         # Makespan - idle - switch time
         useful_execution = sum(1 for tick in self.gantt_ticks if tick["label"] not in ("idle", "cs"))
 
-        utilization = float(useful_execution) / makespan * 100 if makespan > 0 else 0.0
+        utilization = float(useful_execution) / elapsed_ticks * 100 if elapsed_ticks > 0 else 0.0
 
         return {
             "total_processes": int(total_processes),
