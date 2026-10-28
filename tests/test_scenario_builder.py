@@ -1,6 +1,6 @@
 import pytest
 import pandas as pd
-from src.dashboard.views.scenario_builder import validate_workload
+from src.dashboard.views.scenario_builder import to_workload, validate_workload
 from src.core.controller_api import RunConfig, ProcessConfig
 from src.core.controller import RealController
 
@@ -32,6 +32,26 @@ def test_scenario_builder_empty_workload():
     errors = validate_workload(empty_data)
     assert len(errors) == 1
     assert "Workload cannot be empty." in errors[0]
+
+def test_scenario_builder_validation_missing_column():
+    """Test that a table without a required column is rejected instead of crashing."""
+    errors = validate_workload(pd.DataFrame([{"pid": "P1", "arrival_time": 0}]))
+    assert errors == ["Missing required column(s): burst_time."]
+
+def test_scenario_builder_validation_bad_values():
+    """Test that text in number columns and blank PIDs are flagged."""
+    errors = validate_workload(pd.DataFrame([
+        {"pid": "P1", "arrival_time": "soon", "burst_time": 3},
+        {"pid": None, "arrival_time": 0, "burst_time": 2},
+    ]))
+    assert errors == ["P1: Arrival time must be >= 0.", "Row 2: Process ID cannot be empty."]
+
+def test_to_workload_fills_optional_fields():
+    """Test that blank priority/owner get defaults so RealController can build Processes."""
+    df = pd.DataFrame([{"pid": "P1", "arrival_time": 0, "burst_time": 5, "priority": None}])
+    assert to_workload(df) == [
+        {"pid": "P1", "arrival_time": 0, "burst_time": 5, "priority": 1.0, "owner_id": "default_user"}
+    ]
 
 def load_pids(config: RunConfig) -> list:
     controller = RealController()
