@@ -19,6 +19,7 @@
 # )
 
 import io
+import time
 
 import altair as alt
 import pandas as pd
@@ -26,6 +27,9 @@ import streamlit as st
 from src.core.controller_api import RunConfig, RunStatus, Snapshot
 from src.dashboard.config_sidebar import render_process_settings
 from src.dashboard.manager_view import ManagerView
+
+AUTOPLAY = "process-autoplay"
+LAST_STEP = "process-last-step"
 
 
 def describe_config(config: RunConfig) -> str:
@@ -35,9 +39,17 @@ def describe_config(config: RunConfig) -> str:
 
 
 def _record(events: list) -> None:
-    """Appends a step/run's events to the Event log, then redraws."""
     st.session_state.events = [*st.session_state.get("events", []), *events]
     st.rerun()
+
+
+@st.fragment(run_every=1)
+def _autoplay(controller) -> None:
+    # The full rerun that each step triggers also calls this; skip it so steps stay a second apart.
+    if time.monotonic() - st.session_state.get(LAST_STEP, 0.0) < 0.9:
+        return
+    st.session_state[LAST_STEP] = time.monotonic()
+    _record(controller.step().events)
 
 
 def render_process_content(snapshot: Snapshot) -> str:
@@ -48,28 +60,40 @@ def render_process_content(snapshot: Snapshot) -> str:
     else:
         st.warning("Controller not initialized.")
     
-    # Simulation Execution Controls (Step / Run / Pause / Reset)
+    # Simulation Execution Controls
     if controller and hasattr(controller, "engine"):
         can_advance = snapshot.status in (RunStatus.READY, RunStatus.PAUSED)
-        step_col, run_col, pause_col, reset_col = st.columns(4)
-        if step_col.button("Step (1 tick)", key="process-step", disabled=not can_advance, width="stretch"):
-            _record(controller.step().events)
-        if run_col.button("Run to completion", key="process-run", disabled=not can_advance, width="stretch"):
-            _record(controller.run().events)
-        # shortcut: run() is synchronous, so Pause only takes effect between reruns, not mid-run
-        if pause_col.button("Pause", key="process-pause", disabled=not can_advance, width="stretch"):
-            controller.pause()
-            st.rerun()
-        if reset_col.button("Reset", key="process-reset", disabled=snapshot.status == RunStatus.NOT_LOADED, width="stretch"):
-            controller.reset()
-            st.session_state.events = []
-            st.rerun()
+        if not can_advance:
+            st.session_state[AUTOPLAY] = False
+        playing = st.session_state.get(AUTOPLAY, False)
 
-        until_col, until_btn_col, tick_col = st.columns([1, 1, 2], vertical_alignment="bottom")
-        until_tick = until_col.number_input("Until tick", key="process-until-tick", min_value=1, value=10, step=1)
-        if until_btn_col.button("Run until tick", key="process-run-until", disabled=not can_advance, width="stretch"):
-            _record(controller.run(until_tick=int(until_tick)).events)
-        tick_col.markdown(f"**Current Simulation Tick:** `{snapshot.tick} ms` · **Status:** `{snapshot.status.value}`")
+        with st.container(horizontal=True):
+            if st.button("", icon=":material/play_arrow:", key="process-run", disabled=not can_advance or playing,
+                         help="Run (one tick per second)"):
+                st.session_state[AUTOPLAY] = True
+                st.rerun()
+            if st.button("", icon=":material/pause:", key="process-pause", disabled=not playing, help="Pause"):
+                st.session_state[AUTOPLAY] = False
+                controller.pause()
+                st.rerun()
+            if st.button("", icon=":material/skip_next:", key="process-step", disabled=not can_advance or playing,
+                         help="Step (1 tick)"):
+                _record(controller.step().events)
+            if st.button("", icon=":material/fast_forward:", key="process-run-to-end", disabled=not can_advance,
+                         help="Run to completion"):
+                st.session_state[AUTOPLAY] = False
+                _record(controller.run().events)
+            if st.button("", icon=":material/replay:", key="process-reset",
+                         disabled=snapshot.status == RunStatus.NOT_LOADED, help="Reset"):
+                st.session_state[AUTOPLAY] = False
+                controller.reset()
+                st.session_state.events = []
+                st.rerun()
+
+        status = "running" if playing else snapshot.status.value
+        st.markdown(f"**Current Simulation Tick:** `{snapshot.tick} ms` · **Status:** `{status}`")
+        if playing:
+            _autoplay(controller)
 
     # Pull process manager state snapshot
     mgr_state = proc_mgr.snapshot() if proc_mgr and hasattr(proc_mgr, "snapshot") else {}
