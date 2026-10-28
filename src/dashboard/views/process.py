@@ -102,12 +102,15 @@ def render_process_content(snapshot: Snapshot) -> str:
     with st.container(border=True):
         st.markdown("**CPU Gantt chart**")
         if proc_mgr and hasattr(proc_mgr, "gantt_ticks") and proc_mgr.gantt_ticks:
+            # One row per [start, end) interval; "cs" and "idle" are scheduler overhead, not processes.
             intervals = pd.read_csv(io.StringIO(proc_mgr._gantt_chart()), dtype={"label": str})
             intervals["mid"] = (intervals.start + intervals.end) / 2
             intervals["lane"] = "CPU"
             overhead = intervals.label.isin(["idle", "cs"])
             pids = sorted(intervals.label[~overhead].unique())
+            # Every interval shares the single "CPU" row.
             y = alt.Y("lane:N", title=None)
+            # Processes get a color each; context switches are grey, and idle is faded grey.
             bars = alt.Chart(intervals).mark_bar(stroke="white", strokeWidth=1).encode(
                 x=alt.X("start:Q", title="Time (ms)", scale=alt.Scale(domainMin=0)),
                 x2="end:Q",
@@ -118,12 +121,13 @@ def render_process_content(snapshot: Snapshot) -> str:
                 opacity=alt.condition(alt.datum.label == "idle", alt.value(0.4), alt.value(1.0)),
                 tooltip=["label", "start", "end"],
             )
+            # PID labels centered on process bars, plus a dashed line at the current tick.
             labels = alt.Chart(intervals[~overhead]).mark_text(color="white", fontWeight="bold").encode(
                 x="mid:Q", y=y, text="label:N")
             now = alt.Chart(pd.DataFrame({"t": [snapshot.tick]})).mark_rule(strokeDash=[4, 4], color="#D33").encode(x="t:Q")
             st.altair_chart((bars + labels + now).properties(
                 title="CPU timeline (grey = context switch, faded = idle, red line = now)", height=60,
-                # Streamlit's default "fit" squeezes title, axis and legend into the height, leaving no room for the bar row.
+                # fit-x keeps the 60 px for the bar row; Streamlit's default "fit" would shrink it to nothing.
                 autosize=alt.AutoSizeParams(type="fit-x", contains="padding")),
                 width="stretch")
         else:
