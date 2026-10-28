@@ -183,24 +183,38 @@ class RealController:
                 "context_switch_ms": config.process.context_switch_ms,
                 "aging_interval": config.process.aging_interval,
             })
-            # Test hardcoded values
-            baseline_workload = [
-                Process(pid="P1", arrival_time=0, burst_time=8, priority=3, owner_id=1),
-                Process(pid="P2", arrival_time=1, burst_time=4, priority=1, owner_id=1),
-                Process(pid="P3", arrival_time=2, burst_time=9, priority=4, owner_id=1),
-                Process(pid="P4", arrival_time=3, burst_time=5, priority=2, owner_id=1),
-            ]
-            proc_mgr.load(baseline_workload)
+            
+            if config.process.custom_workload:
+                processes = []
+                for p_dict in config.process.custom_workload:
+                    processes.append(Process(
+                        pid=str(p_dict["pid"]),
+                        arrival_time=int(p_dict["arrival_time"]),
+                        burst_time=int(p_dict["burst_time"]),
+                        priority=int(p_dict.get("priority", 1)),
+                        owner_id=str(p_dict.get("owner_id", "default_user")),
+                        remaining_time=int(p_dict["burst_time"])
+                    ))
+                proc_mgr.load(processes)
+            else:
+                # Test hardcoded values
+                baseline_workload = [
+                    Process(pid="P1", arrival_time=0, burst_time=8, priority=3, owner_id=1),
+                    Process(pid="P2", arrival_time=1, burst_time=4, priority=1, owner_id=1),
+                    Process(pid="P3", arrival_time=2, burst_time=9, priority=4, owner_id=1),
+                    Process(pid="P4", arrival_time=3, burst_time=5, priority=2, owner_id=1),
+                ]
+                proc_mgr.load(baseline_workload)
 
 
 
-            workload_file = getattr(config.process, "workload_file", "data/processes.csv")
-            try:
-                processes = load_and_validate_processes(workload_file)
-                if hasattr(proc_mgr, "load_processes"):
-                    proc_mgr.load_processes(processes)
-            except Exception:
-                pass
+                workload_file = getattr(config.process, "workload_file", "data/processes.csv")
+                try:
+                    processes = load_and_validate_processes(workload_file)
+                    if hasattr(proc_mgr, "load_processes"):
+                        proc_mgr.load_processes(processes)
+                except Exception:
+                    pass
             
         self.status = RunStatus.READY
         return self.snapshot()
