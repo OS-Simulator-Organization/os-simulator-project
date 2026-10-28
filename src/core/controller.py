@@ -13,6 +13,7 @@ from src.core.controller_api import (
     ControllerAPI,
     ControllerStateError,
     Metric,
+    PROCESS_METRIC_UNITS,
     ProcessConfig,
     RunConfig,
     RunStatus,
@@ -283,7 +284,7 @@ class RealController:
             for metric_key, val in mgr_metrics.items():
                 formatted_metrics[mgr_name][metric_key] = Metric(
                     value=float(val),
-                    unit="ms" if "time" in metric_key else ("%" if "utilization" in metric_key else "count"),
+                    unit=PROCESS_METRIC_UNITS.get(metric_key) or ("ms" if "time" in metric_key else ("%" if "utilization" in metric_key else "count")),
                 )
 
         return Snapshot(
