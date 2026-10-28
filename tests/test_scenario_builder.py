@@ -33,31 +33,16 @@ def test_scenario_builder_empty_workload():
     assert len(errors) == 1
     assert "Workload cannot be empty." in errors[0]
 
-def test_real_controller_loads_custom_workload():
-    """Test that the RealController prioritizes the custom workload over the baseline."""
-    custom_workload = [{
-        "pid": "TEST-1", 
-        "arrival_time": 0, 
-        "burst_time": 10, 
-        "priority": 1, 
-        "owner_id": "test_user"
-    }]
-    
-    config = RunConfig(process=ProcessConfig(custom_workload=custom_workload))
+def load_pids(config: RunConfig) -> list:
     controller = RealController()
-    
-    # Load the configuration which should trigger proc_mgr.load()
     controller.load(config)
-    
-    # Verify the custom process was passed to the Process Manager
-    proc_mgr = controller.engine.get_manager("Process")
-    
-    # Note: Depending on your exact ProcessManager implementation, 
-    # you may need to adjust 'proc_mgr.processes' to match its internal state attribute
-    loaded_processes = getattr(proc_mgr, "processes", getattr(proc_mgr, "ready_queue", []))
-    
-    # A simple check to ensure it didn't load the default 4 baseline processes
-    assert hasattr(proc_mgr, "is_configured")
-    # If your ProcessManager stores processes in a list, we can check its length/contents:
-    # assert len(loaded_processes) == 1
-    # assert loaded_processes[0].pid == "TEST-1"
+    return [p.pid for p in controller.engine.get_manager("Process").workload]
+
+def test_real_controller_loads_custom_workload():
+    """Test that the RealController uses the custom workload instead of the baseline."""
+    custom_workload = [{"pid": "TEST-1", "arrival_time": 0, "burst_time": 10, "priority": 1, "owner_id": "test_user"}]
+    assert load_pids(RunConfig(process=ProcessConfig(custom_workload=custom_workload))) == ["TEST-1"]
+
+def test_real_controller_loads_baseline_without_custom_workload():
+    """Test that the baseline workload still loads when no custom workload is given."""
+    assert load_pids(RunConfig()) == ["P1", "P2", "P3", "P4"]
