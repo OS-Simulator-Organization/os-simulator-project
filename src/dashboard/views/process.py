@@ -34,6 +34,12 @@ def describe_config(config: RunConfig) -> str:
     return f"Policy: {process.policy.value} · Quantum: {quantum} · Context switch: {process.context_switch_ms} ms"
 
 
+def _record(events: list) -> None:
+    """Appends a step/run's events to the Event log, then redraws."""
+    st.session_state.events = [*st.session_state.get("events", []), *events]
+    st.rerun()
+
+
 def render_process_content(snapshot: Snapshot) -> str:
     controller = st.session_state.get("controller")
     proc_mgr = None
@@ -42,19 +48,28 @@ def render_process_content(snapshot: Snapshot) -> str:
     else:
         st.warning("Controller not initialized.")
     
-    # Simulation Execution Controls (Step / Run)
+    # Simulation Execution Controls (Step / Run / Pause / Reset)
     if controller and hasattr(controller, "engine"):
-        col1, col2, col3 = st.columns([1, 1, 2])
-        with col1:
-            if st.button("Step (1 tick)", disabled=snapshot.status != RunStatus.READY):
-                controller.step()
-                st.rerun()
-        with col2:
-            if st.button("Run to completion", disabled=snapshot.status != RunStatus.READY):
-                controller.run()
-                st.rerun()
-        with col3:
-            st.markdown(f"**Current Simulation Tick:** `{snapshot.tick} ms`")
+        can_advance = snapshot.status in (RunStatus.READY, RunStatus.PAUSED)
+        step_col, run_col, pause_col, reset_col = st.columns(4)
+        if step_col.button("Step (1 tick)", key="process-step", disabled=not can_advance, width="stretch"):
+            _record(controller.step().events)
+        if run_col.button("Run to completion", key="process-run", disabled=not can_advance, width="stretch"):
+            _record(controller.run().events)
+        # shortcut: run() is synchronous, so Pause only takes effect between reruns, not mid-run
+        if pause_col.button("Pause", key="process-pause", disabled=not can_advance, width="stretch"):
+            controller.pause()
+            st.rerun()
+        if reset_col.button("Reset", key="process-reset", disabled=snapshot.status == RunStatus.NOT_LOADED, width="stretch"):
+            controller.reset()
+            st.session_state.events = []
+            st.rerun()
+
+        until_col, until_btn_col, tick_col = st.columns([1, 1, 2], vertical_alignment="bottom")
+        until_tick = until_col.number_input("Until tick", key="process-until-tick", min_value=1, value=10, step=1)
+        if until_btn_col.button("Run until tick", key="process-run-until", disabled=not can_advance, width="stretch"):
+            _record(controller.run(until_tick=int(until_tick)).events)
+        tick_col.markdown(f"**Current Simulation Tick:** `{snapshot.tick} ms` · **Status:** `{snapshot.status.value}`")
 
     # Pull process manager state snapshot
     mgr_state = proc_mgr.snapshot() if proc_mgr and hasattr(proc_mgr, "snapshot") else {}
