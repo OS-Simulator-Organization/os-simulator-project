@@ -183,6 +183,20 @@ class RealController:
                 "context_switch_ms": config.process.context_switch_ms,
                 "aging_interval": config.process.aging_interval,
             })
+            
+            if config.process.custom_workload:
+                processes = []
+                for p_dict in config.process.custom_workload:
+                    processes.append(Process(
+                        pid=p_dict["pid"],
+                        arrival_time=p_dict["arrival_time"],
+                        burst_time=p_dict["burst_time"],
+                        priority=p_dict.get("priority", 1),
+                        owner_id=p_dict.get("owner_id", "default_user"),
+                        remaining_time=p_dict["burst_time"]
+                    ))
+                proc_mgr.load(processes)
+        else:
             # Test hardcoded values
             baseline_workload = [
                 Process(pid="P1", arrival_time=0, burst_time=8, priority=3, owner_id=1),

@@ -25,7 +25,7 @@ class ProcessConfig:
     quantum_ms: Optional[int] = None
     context_switch_ms: int = 0
     aging_interval: int = 0
-
+    custom_workload: List[Dict[str, Any]] = field(default_factory=list)
 
 @dataclass(frozen=True)
 class RunConfig:
