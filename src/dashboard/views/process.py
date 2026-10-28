@@ -79,14 +79,29 @@ def render_process_content(snapshot: Snapshot) -> str:
         st.markdown("**CPU Gantt chart**")
         if proc_mgr and hasattr(proc_mgr, "gantt_ticks") and proc_mgr.gantt_ticks:
             intervals = pd.read_csv(io.StringIO(proc_mgr._gantt_chart()), dtype={"label": str})
-            chart = alt.Chart(intervals).mark_bar().encode(
-                x=alt.X("start:Q", title="Tick (ms)"),
+            intervals["mid"] = (intervals.start + intervals.end) / 2
+            intervals["lane"] = "CPU"
+            overhead = intervals.label.isin(["idle", "cs"])
+            pids = sorted(intervals.label[~overhead].unique())
+            y = alt.Y("lane:N", title=None)
+            bars = alt.Chart(intervals).mark_bar(stroke="white", strokeWidth=1).encode(
+                x=alt.X("start:Q", title="Time (ms)", scale=alt.Scale(domainMin=0)),
                 x2="end:Q",
-                y=alt.Y("label:N", title=None),
-                color=alt.Color("label:N", legend=None),
+                y=y,
+                color=alt.condition(alt.FieldOneOfPredicate("label", ["idle", "cs"]), alt.value("#A0A8B4"),
+                                    alt.Color("label:N", scale=alt.Scale(domain=pids),
+                                              legend=alt.Legend(title="Process", orient="bottom", direction="horizontal"))),
+                opacity=alt.condition(alt.datum.label == "idle", alt.value(0.4), alt.value(1.0)),
                 tooltip=["label", "start", "end"],
             )
-            st.altair_chart(chart, width="stretch")
+            labels = alt.Chart(intervals[~overhead]).mark_text(color="white", fontWeight="bold").encode(
+                x="mid:Q", y=y, text="label:N")
+            now = alt.Chart(pd.DataFrame({"t": [snapshot.tick]})).mark_rule(strokeDash=[4, 4], color="#D33").encode(x="t:Q")
+            st.altair_chart((bars + labels + now).properties(
+                title="CPU timeline (grey = context switch, faded = idle, red line = now)", height=60,
+                # Streamlit's default "fit" squeezes title, axis and legend into the height, leaving no room for the bar row.
+                autosize=alt.AutoSizeParams(type="fit-x", contains="padding")),
+                width="stretch")
         else:
             st.caption("No CPU execution recorded yet. Press Step or Run.")
 
