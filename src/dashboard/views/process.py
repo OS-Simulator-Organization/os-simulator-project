@@ -18,6 +18,10 @@
 #     render_sidebar=render_process_settings,
 # )
 
+import io
+
+import altair as alt
+import pandas as pd
 import streamlit as st
 from src.core.controller_api import RunConfig, RunStatus, Snapshot
 from src.dashboard.config_sidebar import render_process_settings
@@ -59,8 +63,15 @@ def render_process_content(snapshot: Snapshot) -> str:
     with st.container(border=True):
         st.markdown("**CPU Gantt chart**")
         if proc_mgr and hasattr(proc_mgr, "gantt_ticks") and proc_mgr.gantt_ticks:
-            gantt_csv = proc_mgr._gantt_chart()
-            st.code(gantt_csv, language="csv")
+            intervals = pd.read_csv(io.StringIO(proc_mgr._gantt_chart()), dtype={"label": str})
+            chart = alt.Chart(intervals).mark_bar().encode(
+                x=alt.X("start:Q", title="Tick (ms)"),
+                x2="end:Q",
+                y=alt.Y("label:N", title=None),
+                color=alt.Color("label:N", legend=None),
+                tooltip=["label", "start", "end"],
+            )
+            st.altair_chart(chart, width="stretch")
         else:
             st.caption("No CPU execution recorded yet. Press Step or Run.")
 
