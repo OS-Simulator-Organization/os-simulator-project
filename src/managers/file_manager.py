@@ -50,6 +50,9 @@ class FileManager(BaseManager):
         # Queue initial scheduled file requests/workload
         self.pending_io_operations = initial_state.get("io_requests", [])
 
+    def reset(self) -> None:
+        pass
+
     def step(self, current_time: float) -> List[EventRecord]:
         """Advance file system state by one tick, processing scheduled I/O requests"""
         self.current_time = current_time
@@ -105,6 +108,12 @@ class FileManager(BaseManager):
             "bytes_read": self.bytes_read,
             "bytes_written": self.bytes_written
         }
+
+    def validate(self) -> List[str]:
+        pass
+    
+    def export(self, export_format: str = "json") -> Any:
+        pass
 
     # Internal helper methods
     def _execute_io_operation():

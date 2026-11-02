@@ -49,6 +49,9 @@ class MemoryManager(BaseManager):
                 self.frames[i].process_id = frame_data.get("process_id")
                 self.frames[i].page_number = frame_data.get("page_number")
 
+    def reset(self) -> None:
+        pass
+
     def step(self, current_time: float) -> List[EventRecord]:
         """Advance memory simulation by one tick."""
         self.current_time = current_time
@@ -122,7 +125,8 @@ class MemoryManager(BaseManager):
         Return snapshot of current Memory
         """
         return self.snapshot()
-    
+
+
     # Manager helper functions
     def _should_stop():
         pass
