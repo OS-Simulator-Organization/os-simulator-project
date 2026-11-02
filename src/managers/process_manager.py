@@ -548,6 +548,11 @@ class ProcessManager(BaseManager):
                 p.wait_time = p.turnaround_time - p.burst_time
                 self.completed_processes.append(p)
 
+                # BUG FIX:
+                # Start context switch if there is a process waiting 
+                if self.context_switch_cost > 0 and self.ready_queue:
+                    self.cs_ticks_remaining = self.context_switch_cost
+
                 # Create termination event
                 events.append(EventRecord(
                     timestamp=self.current_time,
