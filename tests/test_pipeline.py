@@ -82,8 +82,8 @@ MISSING_ABSTRACT_METHODS = "missing BaseManager abstract methods, see #34"
 
 @pytest.mark.parametrize("manager_class", [
     ProcessManager,
-    pytest.param(MemoryManager, marks=pytest.mark.xfail(reason=MISSING_ABSTRACT_METHODS, raises=TypeError, strict=True)),
-    pytest.param(FileManager, marks=pytest.mark.xfail(reason=MISSING_ABSTRACT_METHODS, raises=TypeError, strict=True)),
+    MemoryManager,
+    FileManager,
 ])
 def test_manager_registers_with_schema_name(manager_class):
     with open(SCHEMA_PATH) as f:
