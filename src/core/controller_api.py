@@ -6,7 +6,7 @@ state that does not allow them raise ControllerStateError.
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Dict, FrozenSet, List, Optional, Protocol
+from typing import Any, Dict, FrozenSet, List, Optional, Protocol
 
 from src.core.events import EventRecord
 
@@ -25,7 +25,7 @@ class ProcessConfig:
     quantum_ms: Optional[int] = None
     context_switch_ms: int = 0
     aging_interval: int = 0
-
+    custom_workload: List[Dict[str, Any]] = field(default_factory=list)
 
 @dataclass(frozen=True)
 class RunConfig:

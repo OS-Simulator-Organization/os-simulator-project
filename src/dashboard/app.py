@@ -10,7 +10,6 @@ from src.dashboard.views import VIEWS
 TABS = [
     "Overview",
     *[view.name for view in VIEWS],
-    "Scenario Builder",
     "Testing Center",
     "Comparison",
 ]

@@ -59,6 +59,7 @@ def read_config() -> RunConfig:
             quantum_ms=state.get(QUANTUM, 4) if round_robin else None,
             context_switch_ms=state.get(CONTEXT_SWITCH, 0) if round_robin or srtf else 0 ,
             aging_interval=state.get(AGING_INTERVAL, 0),
+            custom_workload=state.get("custom_workload", []),
         ),
     )
 
