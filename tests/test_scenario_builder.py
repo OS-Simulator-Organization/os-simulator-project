@@ -18,13 +18,15 @@ def test_scenario_builder_validation_errors():
     invalid_data = pd.DataFrame([
         {"pid": "P1", "arrival_time": -1, "burst_time": 0, "priority": 1},
         {"pid": "P1", "arrival_time": 2, "burst_time": 3, "priority": 2},
+        {"pid": "pid 2", "arrival_time": 3, "burst_time": 3, "priority": 3}
     ])
     errors = validate_workload(invalid_data)
     
-    assert len(errors) == 3, "Expected exactly 3 validation errors."
+    assert len(errors) == 4, "Expected exactly 4 validation errors."
     assert any("Arrival time must be >= 0" in e for e in errors), "Failed to catch negative arrival time."
     assert any("Burst time must be > 0" in e for e in errors), "Failed to catch zero/negative burst time."
     assert any("Process IDs must be unique" in e for e in errors), "Failed to catch duplicate PIDs."
+    assert any("Process ID must follow the 'P#' format" in e for e in errors), "Failed to catch invalid PID format."
 
 def test_scenario_builder_empty_workload():
     """Test that an empty DataFrame is flagged as an error."""

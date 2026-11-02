@@ -21,6 +21,15 @@ def test_duplicate_pid_error(tmp_path):
     except ValidationError as err:
         assert "Duplicate process ID" in str(err)
 
+def test_bad_pid_error(tmp_path):
+    csv_file = tmp_path / "bad.csv"
+    csv_file.write_text("pid,owner_id,arrival_time,burst_time,priority\nPid 1,u1,1,5,1\n")
+    try:
+        load_and_validate_processes(str(csv_file))
+        assert False
+    except ValidationError as err:
+        assert "Process ID must follow the 'P#' format" in str(err)
+
 
 def test_negative_arrival_error(tmp_path):
     csv_file = tmp_path / "bad.csv"
