@@ -357,10 +357,10 @@ class ProcessManager(BaseManager):
 
         
         if self.algorithm == "SJF" or self.algorithm == "SRTF":
-            self.ready_queue.sort(key=lambda p: (p.remaining_time, p.arrival_time)) # Second sorting criterea arrival time to break ties
+            self.ready_queue.sort(key=lambda p: (p.remaining_time, p.arrival_time, p.pid)) # Second and third sorting criterea arrival time to break ties
         
         elif self.algorithm == "PRIORITY":
-            self.ready_queue.sort(key=lambda p: (p.priority, p.arrival_time)) # Second sorting criterea arrival time to break ties
+            self.ready_queue.sort(key=lambda p: (p.priority, p.arrival_time, p.pid)) # Second and third sorting criterea arrival time to break ties
 
             # Age Waiting Processes
             if self.aging_interval > 0:
@@ -424,13 +424,13 @@ class ProcessManager(BaseManager):
                 preempt = False
                 next_process = self.ready_queue[0]
 
-                # Evaluate if preempt is necessary
-                if next_process.remaining_time < self.running_process.remaining_time: # Preempt Condition
+                # Evaluate if preempt is necessary using tuple comparison
+                next_tuple = (next_process.remaining_time, next_process.arrival_time, next_process.pid)
+                running_tuple = (self.running_process.remaining_time, self.running_process.arrival_time, self.running_process.pid)
+
+                if next_tuple < running_tuple:
                     preempt = True
-                elif next_process.remaining_time == self.running_process.remaining_time: # Tiebreak condition
-                        # Break based on arrival order: If current process arrived before or at the same time as next process, it stays
-                        if next_process.arrival_time < self.running_process.arrival_time:
-                            preempt = True
+
                 # Preempt
                 if preempt == True:
                     # Requeue current process
@@ -548,6 +548,11 @@ class ProcessManager(BaseManager):
                 p.response_time = p.first_start - p.arrival_time
                 p.wait_time = p.turnaround_time - p.burst_time
                 self.completed_processes.append(p)
+
+                # BUG FIX:
+                # Start context switch if there is a process waiting 
+                if self.context_switch_cost > 0 and self.ready_queue:
+                    self.cs_ticks_remaining = self.context_switch_cost
 
                 # Create termination event
                 events.append(EventRecord(

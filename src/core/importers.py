@@ -1,4 +1,5 @@
 import csv
+import re
 from src.core.models import Process, ProcessState
 
 
@@ -22,6 +23,9 @@ def load_and_validate_processes(file_path):
                 if col not in reader.fieldnames:
                     raise ValidationError(f"Missing required column: '{col}'")
 
+            #This is the enforced format of all PIDs: must be P#
+            pid_format = re.compile(r"^P\d+$")
+
             line_number = 1
             for row in reader:
                 line_number += 1
@@ -31,6 +35,8 @@ def load_and_validate_processes(file_path):
                     raise ValidationError(f"Line {line_number}: Process ID (pid) cannot be empty.")
                 if pid in seen_pids:
                     raise ValidationError(f"Line {line_number}: Duplicate process ID '{pid}' found.")
+                if not pid_format.match(pid):
+                    raise ValidationError(f"Line {line_number}: Process ID must follow the 'P#' format.")
                 seen_pids.add(pid)
 
                 owner_id = row.get("owner_id", "").strip()

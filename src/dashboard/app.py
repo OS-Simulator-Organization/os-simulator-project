@@ -45,7 +45,6 @@ def main() -> None:
     events = st.session_state.get("events", [])
 
     st.title("OS Simulator")
-    st.caption("Currently only running on a mock, scripted FCFS run of three processes.")
 
     views = {view.name: view for view in VIEWS}
     for tab, name in zip(st.tabs(TABS), TABS):

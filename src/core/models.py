@@ -78,7 +78,6 @@ class Process:
     dispatches: int = 0
     preemptions: int = 0
     
-    # These aren't strictly necessary - can be calculated each time they need to be used
     turnaround_time: int = -1
     response_time: int = -1
     wait_time: int = -1

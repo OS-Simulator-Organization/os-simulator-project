@@ -1,4 +1,5 @@
 import json
+import re
 import pandas as pd
 import streamlit as st
 from typing import Any, Dict, List
@@ -21,6 +22,10 @@ def validate_workload(df: pd.DataFrame) -> List[str]:
     errors = []
     if not df["pid"].is_unique:
         errors.append("Process IDs must be unique.")
+
+    #This is the enforced format of all PIDs: must be P#
+    pid_format = re.compile(r"^P\d+$")
+
     # Imported files can hold text in number columns; treat it as missing.
     arrival = pd.to_numeric(df["arrival_time"], errors="coerce")
     burst = pd.to_numeric(df["burst_time"], errors="coerce")
@@ -28,6 +33,11 @@ def validate_workload(df: pd.DataFrame) -> List[str]:
         if pd.isna(pid) or not str(pid).strip():
             errors.append(f"Row {i + 1}: Process ID cannot be empty.")
             pid = f"Row {i + 1}"
+        else:
+            pid_str = str(pid).strip()
+            if not pid_format.match(pid_str):
+                errors.append(f"Row {i + 1} ('{pid_str}'): Process ID must follow the 'P#' format (e.g., P1, P2).")
+                
         if pd.isna(arrival.iloc[i]) or arrival.iloc[i] < 0:
             errors.append(f"{pid}: Arrival time must be >= 0.")
         if pd.isna(burst.iloc[i]) or burst.iloc[i] <= 0:
