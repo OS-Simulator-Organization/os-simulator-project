@@ -79,9 +79,7 @@ class SimulationController:
 
         # Get process manager reference and running process
         proc_mgr = self.get_manager("Process")
-
         mem_mgr = self.get_manager("Memory")
-
 
         # Step Process Manager
         if proc_mgr:
@@ -205,14 +203,13 @@ class RealController:
 
         # Configure managers with new run settings
         proc_mgr = self.engine.get_manager("Process")
-        if proc_mgr:
+        if proc_mgr and config.process.custom_workload:
             proc_mgr.configure({
                 "policy": config.process.policy.value,
                 "quantum_ms": config.process.quantum_ms,
                 "context_switch_ms": config.process.context_switch_ms,
                 "aging_interval": config.process.aging_interval,
             })
-            
             if config.process.custom_workload:
                 processes = []
                 for p_dict in config.process.custom_workload:
@@ -225,37 +222,62 @@ class RealController:
                         remaining_time=int(p_dict["burst_time"])
                     ))
                 proc_mgr.load(processes)
-            else:
-                # Test hardcoded values
-                baseline_workload = [
-                    Process(pid="P1", arrival_time=0, burst_time=8, priority=3, owner_id=1),
-                    Process(pid="P2", arrival_time=1, burst_time=4, priority=1, owner_id=1),
-                    Process(pid="P3", arrival_time=2, burst_time=9, priority=4, owner_id=1),
-                    Process(pid="P4", arrival_time=3, burst_time=5, priority=2, owner_id=1),
-                ]
-                proc_mgr.load(baseline_workload)
-
-
-
-                workload_file = getattr(config.process, "workload_file", "data/processes.csv")
-                try:
-                    processes = load_and_validate_processes(workload_file)
-                    if hasattr(proc_mgr, "load_processes"):
-                        proc_mgr.load_processes(processes)
-                except Exception:
-                    pass
+        elif proc_mgr and config.scenario_id == "baseline":
+            proc_mgr.configure({
+                "policy": "ROUND_ROBIN",
+                "quantum_ms": 4,
+                "context_switch_ms": 0,
+                "aging_interval": 0,
+            })
+            baseline_workload = [
+                {"pid": "P1", "arrival_time": 0, "burst_time": 8, "priority": 3, "owner_id": "user1"},
+                {"pid": "P2", "arrival_time": 1, "burst_time": 4, "priority": 1, "owner_id": "user1"},
+                {"pid": "P3", "arrival_time": 2, "burst_time": 9, "priority": 4, "owner_id": "user1"},
+                {"pid": "P4", "arrival_time": 3, "burst_time": 5, "priority": 2, "owner_id": "user1"},
+            ]
+            processes = [
+                Process(
+                    pid=str(p["pid"]),
+                    arrival_time=int(p["arrival_time"]),
+                    burst_time=int(p["burst_time"]),
+                    priority=int(p.get("priority", 1)),
+                    owner_id=str(p.get("owner_id", "default_user")),
+                    remaining_time=int(p["burst_time"])
+                ) for p in baseline_workload
+            ]
+            proc_mgr.load(processes)
+        else:
+            workload_file = getattr(config.process, "workload_file", "data/processes.csv")
+            try:
+                processes = load_and_validate_processes(workload_file)
+                if hasattr(proc_mgr, "load_processes"):
+                    proc_mgr.load(processes)
+            except Exception:
+                pass
+            
 
         # MEMORY MANAGER TEST CONFIGURATION WITH DEFAULT VALUES            
         mem_mgr = self.engine.get_manager("Memory")
-        if mem_mgr:
+        if mem_mgr and config.memory.traces:
             mem_mgr.configure({
                 "algorithm": config.memory.algorithm.value,
                 "page_size": config.memory.page_size,
                 "total_frames": config.memory.total_frames,
                 "fault_latency": config.memory.fault_latency,
             })
+            custom_traces = config.memory.traces if config.memory.traces else {}
             mem_mgr.load({
-                "traces": config.memory.traces
+                "traces": custom_traces
+            })
+        elif mem_mgr and config.scenario_id == "baseline":
+            mem_mgr.configure({
+                "algorithm": "FIFO",
+                "page_size": 4096,
+                "total_frames": 4,
+                "fault_latency": 0,
+            })
+            mem_mgr.load({
+                "traces": {"P1": [0x0040, 0x10A0, 0x0044, 0x20B0]}
             })
 
         self.status = RunStatus.READY
@@ -325,7 +347,7 @@ class RealController:
             for metric_key, val in mgr_metrics.items():
                 formatted_metrics[mgr_name][metric_key] = Metric(
                     value=float(val),
-                    unit=METRIC_UNITS.get(metric_key) or ("ms" if "time" in metric_key else ("%" if "utilization" in metric_key else "count")),
+                    unit=METRIC_UNITS.get(metric_key) or ("ms" if "time" in metric_key else ("%" if "utilization" in metric_key else "")),
                 )
 
         return Snapshot(

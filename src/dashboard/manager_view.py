@@ -66,9 +66,37 @@ def _render_header(view: ManagerView, snapshot: Snapshot) -> None:
 
 
 def _render_metrics(view: ManagerView, snapshot: Snapshot) -> None:
-    metrics = snapshot.metrics.get(view.manager, {})
-    if not metrics:
+    raw_metrics = snapshot.metrics.get(view.manager, {})
+    if not raw_metrics:
         st.caption("No metrics yet. Load a run to see them.")
         return
-    for column, (key, metric) in zip(st.columns(len(metrics)), metrics.items()):
-        column.metric(key.replace("_", " ").capitalize(), f"{metric.value:g} {metric.unit}")
+    
+    metrics = list(raw_metrics.items()) if isinstance(raw_metrics, dict) else list(raw_metrics)
+    
+    # Group metrics into rows of 4 columns
+    chunk_size = 4
+    for i in range(0, len(metrics), chunk_size):
+        chunk = metrics[i:i + chunk_size]
+        cols = st.columns(len(chunk))
+        for col, (key, metric) in zip(cols, chunk):
+            val = metric.value
+            val_str = f"{int(val)}" if val.is_integer() else f"{val:.2f}"
+            label = key.replace("_", " ").capitalize()
+            
+            # Render a clean, compact custom card instead of st.metric
+            with col:
+                st.markdown(
+                    f"""
+                    <div style="
+                        padding: 10px 12px;
+                        border-radius: 6px;
+                        border: 1px solid rgba(150, 150, 150, 0.2);
+                        background-color: rgba(150, 150, 150, 0.03);
+                        margin-bottom: 10px;
+                    ">
+                        <div style="font-size: 0.75rem; color: gray; font-weight: 500; margin-bottom: 2px;">{label}</div>
+                        <div style="font-size: 1.15rem; font-weight: 600;">{val_str} <span style="font-size: 0.8rem; font-weight: normal; color: gray;">{metric.unit}</span></div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )

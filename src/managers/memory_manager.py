@@ -406,6 +406,9 @@ class MemoryManager(BaseManager):
         events: List[EventRecord] = []
         resolved_pids: List[str] = []
 
+        if not self.traces:
+            return events
+
         # Decrement fault latency countdown for each process currently blocked on a page fault
         for pid, remaining_ticks in self.fault_latencies.items():
             if remaining_ticks > 0:
@@ -547,17 +550,27 @@ class MemoryManager(BaseManager):
             self.trace_pointers[pid] = pointer + 1
             if self.fault_latency > 0:
                 self.fault_latencies[pid] = self.fault_latency
-
-            events.append(EventRecord(
-                timestamp=self.current_time,
-                manager="Memory",
-                event_type="PAGE_FAULT",
-                entity_id=pid,
-                action="BLOCK",
-                previous_state="READY",
-                new_state="WAITING",
-                outcome="SUCCESS"
-            ))
+                events.append(EventRecord(
+                    timestamp=self.current_time,
+                    manager="Memory",
+                    event_type="PAGE_FAULT",
+                    entity_id=pid,
+                    action="BLOCK",
+                    previous_state="READY",
+                    new_state="WAITING",
+                    outcome="SUCCESS"
+                ))
+            else:
+                events.append(EventRecord(
+                    timestamp=self.current_time,
+                    manager="Memory",
+                    event_type="PAGE_FAULT_RESOLVED",
+                    entity_id=pid,
+                    action="UNBLOCK",
+                    previous_state="WAITING",
+                    new_state="READY",
+                    outcome="SUCCESS"
+                ))
 
         return events
 

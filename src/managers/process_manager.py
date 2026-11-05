@@ -310,7 +310,7 @@ class ProcessManager(BaseManager):
         Used by the simulation controller to determine run completion.
         """
         if not self.workload:
-            return False
+            return True
         return all(p.state == ProcessState.TERMINATED for p in self.workload)
 
     def is_idle(self) -> bool:

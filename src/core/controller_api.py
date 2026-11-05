@@ -49,9 +49,7 @@ class MemoryConfig:
     page_size: int = 4096
     total_frames: int = 4
     fault_latency: int = 2
-    traces: Dict[str, List[Any]] = field(default_factory=lambda: {
-        "P1": ["0x0040", "0x10A0", "0x0044", "0x20B0"]
-    })
+    traces: Dict[str, List[Any]] = field(default_factory=dict)
     def validate(self) -> List[str]:
         errors = []
         if self.page_size <= 0 or (self.page_size & (self.page_size - 1)) != 0:

@@ -86,7 +86,7 @@ def test_round_robin_shows_quantum_and_context_switch():
 def test_other_policies_hide_quantum_and_context_switch():
     app = pick_policy(pick_policy(run_app(), SchedulingPolicy.ROUND_ROBIN), SchedulingPolicy.FCFS)
     labels = [number_input.label for number_input in app.sidebar.number_input]
-    assert labels == ["Seed"]
+    assert labels == ["Seed", "Total frames", "Fault latency (ticks)"]
 
 # This test is no longer necessary
 # def test_unsupported_policy_blocks_load():
