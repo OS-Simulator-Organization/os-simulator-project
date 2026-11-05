@@ -4,7 +4,7 @@ import pytest
 
 from src.core.controller import SimulationController
 from src.core.controller_api import (RunConfig, ProcessConfig, SchedulingPolicy)
-from src.core.DummyProcessManager import DummyProcessManager
+# from src.core.DummyProcessManager import DummyProcessManager
 from src.core.events import SCHEMA_PATH, EventRecord
 from src.core.models import Process
 from src.managers.file_manager import FileManager
@@ -14,7 +14,7 @@ from src.managers.process_manager import ProcessManager
 
 def make_controller(seed: int = 42) -> SimulationController:
     controller = SimulationController(seed=seed)
-    manager = DummyProcessManager()
+    manager = ProcessManager()
     controller.register_manager(manager)
     manager.load([
         Process(pid="P1", owner_id="user_admin", arrival_time=0, burst_time=5, priority=1, remaining_time=5),
@@ -29,8 +29,8 @@ def test_processes_arrive_on_their_tick():
     tick_0 = controller.step()
     tick_1 = controller.step()
 
-    assert [e.entity_id for e in tick_0] == ["P1"]
-    assert [e.entity_id for e in tick_1] == ["P2"]
+    assert tick_0[0].entity_id == "P1" and tick_0[0].event_type == "PROCESS_ARRIVE"
+    assert tick_1[0].entity_id == "P2" and tick_1[0].event_type == "PROCESS_ARRIVE"
 
 
 def test_events_match_schema():
@@ -75,9 +75,6 @@ def test_out_of_order_event_scheduling():
     assert len(step_events) >= 1
     assert step_events[0].entity_id == "P_EARLY"
     assert controller.clock == 1
-
-
-MISSING_ABSTRACT_METHODS = "missing BaseManager abstract methods, see #34"
 
 
 @pytest.mark.parametrize("manager_class", [

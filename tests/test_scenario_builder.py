@@ -62,8 +62,8 @@ def load_pids(config: RunConfig) -> list:
 
 def test_real_controller_loads_custom_workload():
     """Test that the RealController uses the custom workload instead of the baseline."""
-    custom_workload = [{"pid": "TEST-1", "arrival_time": 0, "burst_time": 10, "priority": 1, "owner_id": "test_user"}]
-    assert load_pids(RunConfig(process=ProcessConfig(custom_workload=custom_workload))) == ["TEST-1"]
+    custom_workload = [{"pid": "P1", "arrival_time": 0, "burst_time": 10, "priority": 1, "owner_id": "test_user"}]
+    assert load_pids(RunConfig(process=ProcessConfig(custom_workload=custom_workload))) == ["P1"]
 
 def test_real_controller_loads_baseline_without_custom_workload():
     """Test that the baseline workload still loads when no custom workload is given."""
