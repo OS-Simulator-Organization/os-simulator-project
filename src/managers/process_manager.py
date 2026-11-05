@@ -10,7 +10,7 @@ class ProcessManager(BaseManager):
         Initializes all object fields to defaults
         """
         super().__init__("Process")
-        
+        self.is_configured: bool = False
         self.algorithm: str = "FCFS"
 
         self.quantum: int = 0
@@ -28,7 +28,7 @@ class ProcessManager(BaseManager):
         self.completed_processes: List[Process] = []
 
         self.idle_time: int = 0
-        self.current_time: int = 0
+        self.current_time: float = 0.0
 
         self.gantt_ticks: List[Dict[str, Any]] = []
         
@@ -42,8 +42,7 @@ class ProcessManager(BaseManager):
         if not config:
             raise ValueError("Configuration dictionary is empty")
             
-        # Extract fields matching what RealController.load() provides and mark manager as configured
-        # I'm not 100% about the structure of config so this may end up changing in the future
+        # Extract fields matching what ProcessConfig provides and mark manager as configured
         self.algorithm = config.get("policy", "FCFS")
         self.quantum = config.get("quantum_ms", None)
         self.context_switch_cost = config.get("context_switch_ms", 0)
@@ -214,7 +213,7 @@ class ProcessManager(BaseManager):
             "makespan": float(makespan),
             "utilization": float(utilization),
             "throughput": float(throughput),
-            "context_switches": int(getattr(self, "context_switch_time", 0) / self.context_switch_cost if self.context_switch_cost > 0 else 0),
+            "context_switches": int((self.context_switch_time) / self.context_switch_cost if self.context_switch_cost > 0 else 0),
             "queue_length": int(len(self.ready_queue)),
         }
 
@@ -327,6 +326,35 @@ class ProcessManager(BaseManager):
             and not has_future_arrivals
         )
 
+    # Functions used by other managers and controller
+    def get_running_process(self) -> Optional[Process]:
+        """Retrieves the currently running process"""
+        return self.running_process
+
+    def get_terminated_process(self) -> List[Process]:
+        """Retrives list of completed processes"""
+        return self.completed_processes
+
+    def block_process(self, pid) -> None:
+        """Blocks a running process due to a page fault and frees the CPU"""
+        if self.running_process and self.running_process.pid == pid:
+            p = self.running_process
+            p.state = ProcessState.WAITING
+            self.running_process = None
+            
+            if self.context_switch_cost > 0:
+                self.cs_ticks_remaining = self.context_switch_cost
+        self._update_ready_queue()
+
+    def unblock_process(self, pid) -> None:
+        """Unblocks running process when page fault resolves and changes state to READY"""
+        for p in self.workload:
+            if p.pid == pid and p.state == ProcessState.WAITING:
+                p.state = ProcessState.READY
+                self.ready_queue.append(p)
+                break
+        self._update_ready_queue()
+    
     # Manager helper functions
 
     def _update_ready_queue(self) -> List[EventRecord]:
@@ -339,7 +367,7 @@ class ProcessManager(BaseManager):
         events: List[EventRecord] = []
             # Check if any new processes have arrived
         for p in self.workload:
-            if p.arrival_time == self.current_time:
+            if p.arrival_time == self.current_time and p.state != ProcessState.WAITING:
                 # Add new processes to rq and set to READY
                 self.ready_queue.append(p)
                 p.state = ProcessState.READY
@@ -538,7 +566,7 @@ class ProcessManager(BaseManager):
             })
            
             # Process cleanup and metric calculation
-            if self.running_process.remaining_time == 0:
+            if self.running_process.remaining_time <= 0:
                 p = self.running_process
                 self.running_process = None
 

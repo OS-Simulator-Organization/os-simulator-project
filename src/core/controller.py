@@ -8,12 +8,15 @@ from src.core.events import EventRecord
 from src.core.models import Process
 from src.core.importers import load_and_validate_processes
 
+from src.managers.process_manager import ProcessManager
+from src.managers.memory_manager import MemoryManager
+
 from src.core.controller_api import (
     #Eventually, we can import all the necessary classes from controller_api.py here. For now, we will import the ones we need.
     ControllerAPI,
     ControllerStateError,
     Metric,
-    PROCESS_METRIC_UNITS,
+    METRIC_UNITS,
     ProcessConfig,
     RunConfig,
     RunStatus,
@@ -22,7 +25,7 @@ from src.core.controller_api import (
     StepResult,
 )
 
-from src.managers.process_manager import ProcessManager
+
 
 class SimulationController:
     """
@@ -68,27 +71,52 @@ class SimulationController:
         """
         step_events: List[EventRecord] = []
 
-
-        # 1. Pop and process all events scheduled for current or earlier timestamp
+        # Process scheduled events
         while self.event_queue and self.event_queue[0].timestamp <= self.clock:
             evt = heapq.heappop(self.event_queue)
             self.global_event_log.append(evt)
             step_events.append(evt)      
 
-        # 2. Step through each manager deterministically for current clock
-        for manager in self.managers.values():
-            new_events = manager.step(self.clock)
-            for evt in new_events:
-                if evt.timestamp > self.clock:
-                    self.schedule_event(evt)     # future event, schedule for later  
-                else:
-                    self.global_event_log.append(evt)
-                    step_events.append(evt)
+        # Get process manager reference and running process
+        proc_mgr = self.get_manager("Process")
 
-       
+        mem_mgr = self.get_manager("Memory")
+
+
+        # Step Process Manager
+        if proc_mgr:
+            new_events = proc_mgr.step(self.clock)
+            for evt in new_events:
+                self._handle_event(evt, step_events)
+        
+        running_proc = proc_mgr.get_running_process() if proc_mgr else None
+        terminated_procs = proc_mgr.get_terminated_process() if proc_mgr else []
+
+        # Step Memory Manager
+        if mem_mgr:
+            new_events = mem_mgr.step(self.clock, running_proc, terminated_procs)
+            for evt in new_events:
+                self._handle_event(evt, step_events)
+        
         self.clock += 1
-          
         return step_events
+
+    def _handle_event(self, evt: EventRecord, step_events: List[EventRecord]) -> None:
+        """Helper to route cross-manager events and record logs."""
+        
+        if evt.manager == "Memory":
+            proc_mgr = self.get_manager("Process")
+            if evt.event_type == "PAGE_FAULT" and proc_mgr:
+                proc_mgr.block_process(evt.entity_id)
+            elif evt.event_type == "PAGE_FAULT_RESOLVED" and proc_mgr:
+                proc_mgr.unblock_process(evt.entity_id)
+
+
+        if evt.timestamp > self.clock:
+            self.schedule_event(evt)  
+        else:
+            self.global_event_log.append(evt)
+            step_events.append(evt)
 
     def run(self, max_ticks: int = 100) -> List[EventRecord]:
         """Runs the simulation continuously until max ticks or empty queue."""
@@ -137,7 +165,6 @@ class SimulationController:
             name: manager.metrics() for name, manager in self.managers.items()
         }
 
-
 class RealController:
     """
     Adapter class fulfilling the ControllerAPI protocol for the Streamlit Dashboard,
@@ -156,6 +183,7 @@ class RealController:
         self.engine = engine if engine else SimulationController()
 
         self.engine.register_manager(ProcessManager())
+        self.engine.register_manager(MemoryManager())
 
         self.current_config: Optional[RunConfig] = None
         self.run_id: Optional[str] = None
@@ -216,7 +244,20 @@ class RealController:
                         proc_mgr.load_processes(processes)
                 except Exception:
                     pass
-            
+
+        # MEMORY MANAGER TEST CONFIGURATION WITH DEFAULT VALUES            
+        mem_mgr = self.engine.get_manager("Memory")
+        if mem_mgr:
+            mem_mgr.configure({
+                "algorithm": config.memory.algorithm.value,
+                "page_size": config.memory.page_size,
+                "total_frames": config.memory.total_frames,
+                "fault_latency": config.memory.fault_latency,
+            })
+            mem_mgr.load({
+                "traces": config.memory.traces
+            })
+
         self.status = RunStatus.READY
         return self.snapshot()
 
@@ -284,7 +325,7 @@ class RealController:
             for metric_key, val in mgr_metrics.items():
                 formatted_metrics[mgr_name][metric_key] = Metric(
                     value=float(val),
-                    unit=PROCESS_METRIC_UNITS.get(metric_key) or ("ms" if "time" in metric_key else ("%" if "utilization" in metric_key else "count")),
+                    unit=METRIC_UNITS.get(metric_key) or ("ms" if "time" in metric_key else ("%" if "utilization" in metric_key else "count")),
                 )
 
         return Snapshot(

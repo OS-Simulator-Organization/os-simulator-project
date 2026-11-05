@@ -4,7 +4,8 @@ from streamlit.testing.v1 import AppTest
 
 from src.core.controller_api import ProcessConfig, RunConfig, RunStatus, SchedulingPolicy
 from src.dashboard.config_sidebar import CONTEXT_SWITCH, POLICY, POLICY_LABELS, QUANTUM, SEED, config_errors
-from src.dashboard.mock_controller import MockController
+# from src.dashboard.mock_controller import MockController
+from src.core.controller import RealController
 
 ENTRYPOINT = Path(__file__).parent.parent / "streamlit_app.py"
 WARNING = "Settings changed. Press Load and reset to apply them."
@@ -131,9 +132,8 @@ def test_process_tab_header_shows_the_loaded_config():
 
 
 def test_config_errors_combine_validation_and_support():
-    controller = MockController()
+    controller = RealController()
     bad_round_robin = RunConfig(process=ProcessConfig(SchedulingPolicy.ROUND_ROBIN, quantum_ms=0))
     errors = config_errors(bad_round_robin, controller)
     assert "Round Robin needs a time quantum of at least 1 ms." in errors
-    assert "Round Robin is not supported yet." in errors
     assert config_errors(RunConfig(), controller) == []

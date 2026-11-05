@@ -83,7 +83,7 @@ class Process:
     wait_time: int = -1
 
     state: ProcessState = ProcessState.NEW
-    allocated_frames: List[int] = field(default_factory=list)
+
     open_files: List[str] = field(default_factory=list)
 
 
@@ -96,6 +96,7 @@ class PageFrame:
     pid: Optional[str] = None
     is_modified: bool = False
     last_accessed: int = 0
+    load_tick: int = 0
 
 
 # File System Manager
