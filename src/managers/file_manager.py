@@ -244,6 +244,8 @@ class FileManager(BaseManager):
         content = file_info.get("content", "")
         self.create_file(path, owner_id=owner_id, permissions=permissions, content=content)
 
+    
+    
     def _execute_io_operation(self, req: Dict[str, Any]) -> List[EventRecord]:
         events = []
         operation_type = req.get("op", req.get("operation", "")).upper()
@@ -254,17 +256,27 @@ class FileManager(BaseManager):
             success, result = self.read_file(path, user_id=pid)
             if success:
                 events.append(EventRecord(
-                    tick=int(self.current_time),
+                    timestamp=self.current_time,
+                    manager="File",
                     event_type="FILE_READ_SUCCESS",
                     entity_id=pid,
-                    details={"path": path, "size": len(result)}
+                    action="READ",
+                    previous_state="PENDING",
+                    new_state="COMPLETED",
+                    outcome="SUCCESS",
+                    explanatory_message=f"Path: {path}, Size: {len(result)}"
                 ))
             else:
                 events.append(EventRecord(
-                    tick=int(self.current_time),
+                    timestamp=self.current_time,
+                    manager="File",
                     event_type="FILE_OP_ERROR",
                     entity_id=pid,
-                    details={"path": path, "operation": operation_type, "error": result}
+                    action="READ",
+                    previous_state="PENDING",
+                    new_state="FAILED",
+                    outcome="ERROR",
+                    explanatory_message=f"Path: {path}, Error: {result}"
                 ))
 
         elif operation_type == "WRITE":
@@ -272,17 +284,27 @@ class FileManager(BaseManager):
             success, msg = self.write_file(path, content, user_id=pid)
             if success:
                 events.append(EventRecord(
-                    tick=int(self.current_time),
+                    timestamp=self.current_time,
+                    manager="File",
                     event_type="FILE_WRITE_SUCCESS",
                     entity_id=pid,
-                    details={"path": path, "bytes": len(content)}
+                    action="WRITE",
+                    previous_state="PENDING",
+                    new_state="COMPLETED",
+                    outcome="SUCCESS",
+                    explanatory_message=f"Path: {path}, Bytes: {len(content)}"
                 ))
             else:
                 events.append(EventRecord(
-                    tick=int(self.current_time),
+                    timestamp=self.current_time,
+                    manager="File",
                     event_type="FILE_OP_ERROR",
                     entity_id=pid,
-                    details={"path": path, "operation": operation_type, "error": msg}
+                    action="WRITE",
+                    previous_state="PENDING",
+                    new_state="FAILED",
+                    outcome="ERROR",
+                    explanatory_message=f"Path: {path}, Error: {msg}"
                 ))
 
         elif operation_type == "CREATE":
@@ -294,37 +316,59 @@ class FileManager(BaseManager):
 
             if success:
                 events.append(EventRecord(
-                    tick=int(self.current_time),
+                    timestamp=self.current_time,
+                    manager="File",
                     event_type="FILE_CREATE_SUCCESS",
                     entity_id=pid,
-                    details={"path": path}
+                    action="CREATE",
+                    previous_state="PENDING",
+                    new_state="COMPLETED",
+                    outcome="SUCCESS",
+                    explanatory_message=f"Path: {path}"
                 ))
             else:
                 events.append(EventRecord(
-                    tick=int(self.current_time),
+                    timestamp=self.current_time,
+                    manager="File",
                     event_type="FILE_OP_ERROR",
                     entity_id=pid,
-                    details={"path": path, "operation": operation_type, "error": msg}
+                    action="CREATE",
+                    previous_state="PENDING",
+                    new_state="FAILED",
+                    outcome="ERROR",
+                    explanatory_message=f"Path: {path}, Error: {msg}"
                 ))
 
         elif operation_type == "DELETE":
             success, msg = self.delete(path, user_id=pid)
             if success:
                 events.append(EventRecord(
-                    tick=int(self.current_time),
+                    timestamp=self.current_time,
+                    manager="File",
                     event_type="FILE_DELETE_SUCCESS",
                     entity_id=pid,
-                    details={"path": path}
+                    action="DELETE",
+                    previous_state="PENDING",
+                    new_state="COMPLETED",
+                    outcome="SUCCESS",
+                    explanatory_message=f"Path: {path}"
                 ))
             else:
                 events.append(EventRecord(
-                    tick=int(self.current_time),
+                    timestamp=self.current_time,
+                    manager="File",
                     event_type="FILE_OP_ERROR",
                     entity_id=pid,
-                    details={"path": path, "operation": operation_type, "error": msg}
+                    action="DELETE",
+                    previous_state="PENDING",
+                    new_state="FAILED",
+                    outcome="ERROR",
+                    explanatory_message=f"Path: {path}, Error: {msg}"
                 ))
 
-        return events  
+        return events
+
+
 
     def _serialize_tree(self, node: FileNode) -> Dict[str, Any]:
         return {

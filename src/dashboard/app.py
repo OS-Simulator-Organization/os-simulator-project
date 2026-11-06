@@ -8,7 +8,6 @@ from src.core.controller import RealController
 from src.dashboard.views import VIEWS
 
 TABS = [
-    "Overview",
     *[view.name for view in VIEWS],
     "Testing Center",
     "Comparison",

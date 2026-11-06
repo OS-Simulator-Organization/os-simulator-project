@@ -64,6 +64,8 @@ class SimulationController:
             if manager_name in self.managers:
                 self.managers[manager_name].configure(config)
 
+
+
     def step(self) -> List[EventRecord]:
         """
         Advances simulation clock by 1 tick per step call and executes step()
@@ -80,6 +82,7 @@ class SimulationController:
         # Get process manager reference and running process
         proc_mgr = self.get_manager("Process")
         mem_mgr = self.get_manager("Memory")
+        file_mgr = self.get_manager("File")
 
         # Step Process Manager
         if proc_mgr:
@@ -95,7 +98,13 @@ class SimulationController:
             new_events = mem_mgr.step(self.clock, running_proc, terminated_procs)
             for evt in new_events:
                 self._handle_event(evt, step_events)
-        
+
+        # Step File Manager
+        if file_mgr:
+            new_events = file_mgr.step(self.clock)
+            for evt in new_events:
+                self._handle_event(evt, step_events)
+
         self.clock += 1
         return step_events
 
@@ -290,8 +299,30 @@ class RealController:
                 "traces": {"P1": [0x0040, 0x10A0, 0x0044, 0x20B0]}
             })
 
+
+        # FILE MANAGER TEST CONFIGURATION WITH DEFAULT VALUES
+        file_mgr = self.engine.get_manager("File")
+        if file_mgr and (config.files.io_requests or config.files.initial_files):
+            file_mgr.configure({})
+            file_mgr.load({
+                "files": config.files.initial_files,
+                "io_requests": config.files.io_requests,
+            })
+        elif file_mgr and config.scenario_id == "baseline":
+            file_mgr.configure({})
+            file_mgr.load({
+                "files": [
+                    {"path": "/system.log", "owner_id": "root", "permissions": "rw-", "content": "Init OS"}
+                ],
+                "io_requests": [
+                    {"arrival_time": 1, "op": "READ", "path": "/system.log", "pid": "P1"},
+                    {"arrival_time": 3, "op": "WRITE", "path": "/system.log", "content": " - P1 access", "pid": "P1"}
+                ]
+            })
+
         self.status = RunStatus.READY
         return self.snapshot()
+
 
     def step(self) -> StepResult:
         """Advances simulation by 1 step/tick. Requires status READY."""

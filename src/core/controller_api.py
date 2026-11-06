@@ -60,6 +60,15 @@ class MemoryConfig:
             errors.append("Fault latency cannot be negative.")
         return errors
 
+#add file config for initial files and io requests
+@dataclass(frozen=True)
+class FileConfig:
+    initial_files: List[Dict[str, Any]] = field(default_factory=list)
+    io_requests: List[Dict[str, Any]] = field(default_factory=list)
+
+    def validate(self) -> List[str]:
+        return []
+
 
 
 @dataclass(frozen=True)
@@ -69,12 +78,13 @@ class RunConfig:
     scenario_id: str = "baseline"
     process: ProcessConfig = field(default_factory=ProcessConfig)
     memory: MemoryConfig = field(default_factory=MemoryConfig)
-
+    files: FileConfig = field(default_factory=FileConfig) 
     # Validate each manager config based on its own validate method
     def validate(self) -> List[str]:
         errors = []
         errors.extend(self.process.validate())
         errors.extend(self.memory.validate())
+        errors.extend(self.files.validate())
         return errors
 
    
