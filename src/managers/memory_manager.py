@@ -238,8 +238,11 @@ class MemoryManager(BaseManager):
         """
         
         # Calculate hit/fault rates based on request counts
-        fault_rate = (self.page_fault_count / self.total_requests) if self.total_requests > 0 else 0.0
-        hit_rate = (self.hit_count / self.total_requests) if self.total_requests > 0 else 0.0
+        hit_rate = 0.0
+        fault_rate = 0.0
+        if self.total_requests > 0:
+            fault_rate = ((self.page_fault_count * 1.0) / self.total_requests) * 100
+            hit_rate = ((self.hit_count * 1.0) / self.total_requests)  * 100
 
         # Gather other metrics
         allocated_frames = sum(1 for f in self.frames if f.pid is not None)
@@ -250,7 +253,6 @@ class MemoryManager(BaseManager):
         fault_cost = hit_cost + self.fault_latency
         total_cost = (self.hit_count * hit_cost) + (self.page_fault_count * fault_cost)
         avg_access_time = (total_cost / self.total_requests) if self.total_requests > 0 else 0.0
-
         return {
             "total_memory_references": self.total_requests,
             "page_hits": self.hit_count,

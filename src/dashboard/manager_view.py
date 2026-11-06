@@ -80,10 +80,16 @@ def _render_metrics(view: ManagerView, snapshot: Snapshot) -> None:
         cols = st.columns(len(chunk))
         for col, (key, metric) in zip(cols, chunk):
             val = metric.value
-            val_str = f"{int(val)}" if val.is_integer() else f"{val:.2f}"
+
+            if val.is_integer():
+                val_str = f"{int(val)}"
+            else:
+                val_str = f"{val:.2f}"
+
+
             label = key.replace("_", " ").capitalize()
             
-            # Render a clean, compact custom card instead of st.metric
+            # Render custom card for each metric
             with col:
                 st.markdown(
                     f"""
