@@ -8,6 +8,7 @@ from src.core.controller import RealController
 from src.dashboard.views import VIEWS
 
 TABS = [
+    "Overview",
     *[view.name for view in VIEWS],
     "Testing Center",
     "Comparison",
@@ -30,6 +31,24 @@ def render_sidebar(controller: ControllerAPI) -> None:
         st.divider()
         render_load_panel(controller)
 
+def render_overview() -> None:
+    st.subheader("OS Simulator Overview")
+    st.markdown("""
+    Welcome to the **OS Simulator**. This platform models operating system subsystems in real time and demonstrates cross-manager execution dynamics.
+
+    ### Subsystems Supported
+    * **Process Subsystem:** Models CPU scheduling algorithms (Round Robin, FCFS, Priority, SJF), context switching, and Gantt charts.
+    * **Memory Subsystem:** Simulates virtual memory paging, page fault handling, frame allocations, and replacement policies (FIFO, LRU).
+    * **File Subsystem:** Manages hierarchical file trees, permissions, file creation/deletion, and dynamic I/O request queues.
+    * **Event Engine:** Dispatches synchronized simulation ticks across all managers and streams real-time `EventRecord` logs.
+
+    ---
+    ### Quick Start
+    1. Select a **Scenario** (e.g., `baseline`) in the **Global** sidebar panel.
+    2. Click **Load and reset** to initialize the simulation engine.
+    3. Step or run the engine using the playback controls on any manager view.
+    """) 
+
 
 def render_placeholder(name: str) -> None:
     st.subheader(name)
@@ -48,7 +67,9 @@ def main() -> None:
     views = {view.name: view for view in VIEWS}
     for tab, name in zip(st.tabs(TABS), TABS):
         with tab:
-            if name in views:
+            if name == "Overview":
+                render_overview()
+            elif name in views:
                 render_manager_tab(views[name], snapshot, events)
             else:
                 render_placeholder(name)
