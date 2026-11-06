@@ -75,6 +75,22 @@ def render_memory_content(snapshot: Snapshot) -> None:
     # Pull memory manager snapshot state
     mgr_state = mem_mgr.snapshot() if mem_mgr and hasattr(mem_mgr, "snapshot") else {}
 
+
+    mem_metrics = snapshot.metrics.get("Memory", {})
+    p_hits = int(mem_metrics.get("page_hits", type("M", (), {"value": 0})).value)
+    p_faults = int(mem_metrics.get("page_faults", type("M", (), {"value": 0})).value)
+    hit_rate = float(mem_metrics.get("page_hit_rate", type("M", (), {"value": 0.0})).value) * 100
+    avg_access = float(mem_metrics.get("avg_access_time", type("M", (), {"value": 0.0})).value)
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Page Hits", p_hits)
+    c2.metric("Page Faults", p_faults)
+    c3.metric("Hit Rate", f"{hit_rate:.1f}%")
+    c4.metric("Avg Access Time", f"{avg_access} ms")
+
+    st.divider()
+
+
     # Region 1: Physical Frames Table
     with st.container(border=True):
         st.markdown("**Physical Frames**")
