@@ -27,11 +27,13 @@ class FileManager(BaseManager):
 
         # Create root directory node
         self.root = FileNode(
+            path ="/",
             name="/",
-            is_directory=True,
+            is_dir=True,
+            owner_id="root",
+            permissions="rwx",
             size=0,
-            children={},
-            blocks=[]
+            children={}
         )
 
     def load(self, initial_state: Dict[str, Any]) -> None:
@@ -101,7 +103,6 @@ class FileManager(BaseManager):
 
     def metrics(self) -> Dict[str, Any]:
         """Return I/O and storage utilization performance metrics"""
-        allocated = sum(1 for free in self.free_block_bitmap if not free)
         return {
             "reads_count": self.reads_count,
             "writes_count": self.writes_count,
@@ -115,18 +116,229 @@ class FileManager(BaseManager):
     def export(self, export_format: str = "json") -> Any:
         pass
 
+    def _resolve_node(self, path: str) -> Optional[FileNode]:
+            """Traverse the directory tree to find a node by path."""
+            clean = path.strip("/")
+            if not clean:
+                return self.root
+            current = self.root
+            for part in clean.split("/"):
+                if not current or not current.is_dir or part not in current.children:
+                    return None
+                current = current.children[part]
+            return current
+
+    def create_directory(self, path: str, owner_id: str = "root", permissions: str = "rwx") -> tuple[bool, str]:
+        clean = path.strip("/")
+        parts = clean.split("/")
+        name = parts[-1]
+        parent_path = "/" + "/".join(parts[:-1]) if len(parts) > 1 else "/"
+        parent = self._resolve_node(parent_path)
+
+        if not parent or not parent.is_dir:
+            return False, f"Parent directory '{parent_path}' not found"
+        if name in parent.children:
+            return False, f"Directory or file '{name}' already exists"
+
+        new_dir = FileNode(
+            path="/" + clean,
+            name=name,
+            is_dir=True,
+            owner_id=owner_id,
+            permissions=permissions,
+            size=0,
+            content="",
+            parent_path=parent.path,
+            children={}
+        )
+        parent.children[name] = new_dir
+        return True, "Directory created successfully"
+
+    def create_file(self, path: str, owner_id: str = "root", permissions: str = "rw-", content: str = "") -> tuple[bool, str]:
+        clean = path.strip("/")
+        parts = clean.split("/")
+        name = parts[-1]
+        parent_path = "/" + "/".join(parts[:-1]) if len(parts) > 1 else "/"
+        parent = self._resolve_node(parent_path)
+
+        if not parent or not parent.is_dir:
+            return False, f"Parent directory '{parent_path}' not found"
+        if name in parent.children:
+            return False, f"File or directory '{name}' already exists"
+
+        new_file = FileNode(
+            path="/" + clean,
+            name=name,
+            is_dir=False,
+            owner_id=owner_id,
+            permissions=permissions,
+            size=len(content.encode("utf-8")),
+            content=content,
+            parent_path=parent.path,
+            children={}
+        )
+        parent.children[name] = new_file
+        return True, "File created successfully"
+
+    def read_file(self, path: str, user_id: str = "root") -> tuple[bool, str]:
+        node = self._resolve_node(path)
+        if not node:
+            return False, f"File '{path}' not found"
+        if node.is_dir:
+            return False, f"'{path}' is a directory, not a file"
+        if "r" not in node.permissions and node.owner_id != user_id:
+            return False, f"Read permission denied for user '{user_id}'"
+
+        self.reads_count += 1
+        self.bytes_read += node.size
+        return True, node.content
+
+    def write_file(self, path: str, content: str, user_id: str = "root", append: bool = False) -> tuple[bool, str]:
+        node = self._resolve_node(path)
+        if not node:
+            return False, f"File '{path}' not found"
+        if node.is_dir:
+            return False, f"'{path}' is a directory, not a file"
+        if "w" not in node.permissions and node.owner_id != user_id:
+            return False, f"Write permission denied for user '{user_id}'"
+
+        if append:
+            node.content += content
+        else:
+            node.content = content
+
+        node.size = len(node.content.encode("utf-8"))
+        self.writes_count += 1
+        self.bytes_written += len(content.encode("utf-8"))
+        return True, "Write successful"
+
+    def delete(self, path: str, user_id: str = "root") -> tuple[bool, str]:
+        clean = path.strip("/")
+        parts = clean.split("/")
+        name = parts[-1]
+        parent_path = "/" + "/".join(parts[:-1]) if len(parts) > 1 else "/"
+        parent = self._resolve_node(parent_path)
+
+        if not parent or name not in parent.children:
+            return False, f"Item '{path}' not found"
+
+        node = parent.children[name]
+        if "w" not in parent.permissions and parent.owner_id != user_id:
+            return False, f"Permission denied to remove '{name}'"
+
+        del parent.children[name]
+        return True, "Deleted successfully"
+
+    def chmod(self, path: str, permissions: str) -> tuple[bool, str]:
+        node = self._resolve_node(path)
+        if not node:
+            return False, f"Path '{path}' not found"
+        node.permissions = permissions
+        return True, "Permissions updated"
+
     # Internal helper methods
-    def _execute_io_operation():
-        pass
+    def _create_file_node(self, file_info: Dict[str, Any]) -> None:
+        path = file_info.get("path", "")
+        owner_id = file_info.get("owner_id", "root")
+        permissions = file_info.get("permissions", "rw-")
+        content = file_info.get("content", "")
+        self.create_file(path, owner_id=owner_id, permissions=permissions, content=content)
 
-    def _create_file_node():
-        pass
+    def _execute_io_operation(self, req: Dict[str, Any]) -> List[EventRecord]:
+        events = []
+        operation_type = req.get("op", req.get("operation", "")).upper()
+        path = req.get("path", "")
+        pid = req.get("pid", "P0")
 
-    def _serialize_tree():
-        pass
+        if operation_type == "READ":
+            success, result = self.read_file(path, user_id=pid)
+            if success:
+                events.append(EventRecord(
+                    tick=int(self.current_time),
+                    event_type="FILE_READ_SUCCESS",
+                    entity_id=pid,
+                    details={"path": path, "size": len(result)}
+                ))
+            else:
+                events.append(EventRecord(
+                    tick=int(self.current_time),
+                    event_type="FILE_OP_ERROR",
+                    entity_id=pid,
+                    details={"path": path, "operation": operation_type, "error": result}
+                ))
 
-    def _should_stop():
-        pass
+        elif operation_type == "WRITE":
+            content = req.get("content", "")
+            success, msg = self.write_file(path, content, user_id=pid)
+            if success:
+                events.append(EventRecord(
+                    tick=int(self.current_time),
+                    event_type="FILE_WRITE_SUCCESS",
+                    entity_id=pid,
+                    details={"path": path, "bytes": len(content)}
+                ))
+            else:
+                events.append(EventRecord(
+                    tick=int(self.current_time),
+                    event_type="FILE_OP_ERROR",
+                    entity_id=pid,
+                    details={"path": path, "operation": operation_type, "error": msg}
+                ))
 
-    def _is_finished():
-        pass
+        elif operation_type == "CREATE":
+            is_dir = req.get("is_dir", False)
+            if is_dir:
+                success, msg = self.create_directory(path, owner_id=pid)
+            else:
+                success, msg = self.create_file(path, owner_id=pid)
+
+            if success:
+                events.append(EventRecord(
+                    tick=int(self.current_time),
+                    event_type="FILE_CREATE_SUCCESS",
+                    entity_id=pid,
+                    details={"path": path}
+                ))
+            else:
+                events.append(EventRecord(
+                    tick=int(self.current_time),
+                    event_type="FILE_OP_ERROR",
+                    entity_id=pid,
+                    details={"path": path, "operation": operation_type, "error": msg}
+                ))
+
+        elif operation_type == "DELETE":
+            success, msg = self.delete(path, user_id=pid)
+            if success:
+                events.append(EventRecord(
+                    tick=int(self.current_time),
+                    event_type="FILE_DELETE_SUCCESS",
+                    entity_id=pid,
+                    details={"path": path}
+                ))
+            else:
+                events.append(EventRecord(
+                    tick=int(self.current_time),
+                    event_type="FILE_OP_ERROR",
+                    entity_id=pid,
+                    details={"path": path, "operation": operation_type, "error": msg}
+                ))
+
+        return events  
+
+    def _serialize_tree(self, node: FileNode) -> Dict[str, Any]:
+        return {
+            "path": node.path,
+            "name": node.name,
+            "is_dir": node.is_dir,
+            "owner_id": node.owner_id,
+            "permissions": node.permissions,
+            "size": node.size,
+            "children": {k: self._serialize_tree(v) for k, v in node.children.items()}
+        }
+
+    def _should_stop(self, stop_condition: Any) -> bool:
+        return False
+
+    def _is_finished(self) -> bool:
+        return len(self.pending_io_operations) == 0
