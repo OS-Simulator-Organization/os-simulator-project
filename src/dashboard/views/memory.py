@@ -79,13 +79,13 @@ def render_memory_content(snapshot: Snapshot) -> None:
     mem_metrics = snapshot.metrics.get("Memory", {})
     p_hits = int(mem_metrics.get("page_hits", type("M", (), {"value": 0})).value)
     p_faults = int(mem_metrics.get("page_faults", type("M", (), {"value": 0})).value)
-    hit_rate = float(mem_metrics.get("page_hit_rate", type("M", (), {"value": 0.0})).value) * 100
+    hit_rate = float(mem_metrics.get("page_hit_rate", type("M", (), {"value": 0.0})).value)
     avg_access = float(mem_metrics.get("avg_access_time", type("M", (), {"value": 0.0})).value)
 
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Page Hits", p_hits)
     c2.metric("Page Faults", p_faults)
-    c3.metric("Hit Rate", f"{hit_rate:.1f}%")
+    c3.metric("Hit Rate", f"{hit_rate:.2f}%")
     c4.metric("Avg Access Time", f"{avg_access} ms")
 
     st.divider()
@@ -146,6 +146,6 @@ VIEW = ManagerView(
     regions=("Physical Frames", "Page Tables"),
     actions=("Dump stats",),
     describe_config=describe_config,
-    render_sidebar=render_memory_settings,  # Connected to config_sidebar.py
+    render_sidebar=render_memory_settings,
     render_content=render_memory_content,
 )

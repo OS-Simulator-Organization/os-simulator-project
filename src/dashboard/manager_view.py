@@ -72,6 +72,15 @@ def _render_metrics(view: ManagerView, snapshot: Snapshot) -> None:
         return
     
     metrics = list(raw_metrics.items()) if isinstance(raw_metrics, dict) else list(raw_metrics)
+
+    # Remove redundant metrics
+    filtered_metrics = []
+    excluded_metrics = ["page_hits", "page_faults", "page_hit_rate", "avg_access_time"]
+    for key, metric in metrics:
+        if key not in excluded_metrics:
+            filtered_metrics.append((key, metric))
+    metrics = filtered_metrics
+        
     
     # Group metrics into rows of 4 columns
     chunk_size = 4
@@ -80,10 +89,16 @@ def _render_metrics(view: ManagerView, snapshot: Snapshot) -> None:
         cols = st.columns(len(chunk))
         for col, (key, metric) in zip(cols, chunk):
             val = metric.value
-            val_str = f"{int(val)}" if val.is_integer() else f"{val:.2f}"
+
+            if val.is_integer():
+                val_str = f"{int(val)}"
+            else:
+                val_str = f"{val:.2f}"
+
+
             label = key.replace("_", " ").capitalize()
             
-            # Render a clean, compact custom card instead of st.metric
+            # Render custom card for each metric
             with col:
                 st.markdown(
                     f"""

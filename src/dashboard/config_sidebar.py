@@ -63,8 +63,7 @@ def render_process_settings() -> None:
     elif POLICIES_BY_LABEL[label] is SchedulingPolicy.PRIORITY:
         st.number_input("Aging interval (ms)", min_value=0, value=10, step=1, key=AGING_INTERVAL)
 
-    if POLICIES_BY_LABEL[label] in (SchedulingPolicy.ROUND_ROBIN, SchedulingPolicy.SRTF):
-        st.number_input("Context switch cost (ms)", min_value=0, value=0, step=1, key=CONTEXT_SWITCH)
+    st.number_input("Context switch cost (ms)", min_value=0, value=0, step=1, key=CONTEXT_SWITCH)
 
 def render_memory_settings() -> None:
     """Renders memory manager configuration widgets in the sidebar."""
