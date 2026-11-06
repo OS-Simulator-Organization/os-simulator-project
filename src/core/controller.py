@@ -108,6 +108,12 @@ class SimulationController:
                 proc_mgr.block_process(evt.entity_id)
             elif evt.event_type == "PAGE_FAULT_RESOLVED" and proc_mgr:
                 proc_mgr.unblock_process(evt.entity_id)
+        elif evt.manager == "File":
+            proc_mgr = self.get_manager("Process")
+            if evt.event_type == "FILE_IO_BLOCKED" and proc_mgr:
+                proc_mgr.block_process(evt.entity_id)
+            elif evt.event_type in ("FILE_READ_SUCCESS", "FILE_WRITE_SUCCESS", "FILE_CREATE_SUCCESS", "FILE_DELETE_SUCCESS") and proc_mgr:
+                proc_mgr.unblock_process(evt.entity_id)
 
 
         if evt.timestamp > self.clock:
@@ -182,6 +188,10 @@ class RealController:
 
         self.engine.register_manager(ProcessManager())
         self.engine.register_manager(MemoryManager())
+
+        # imported here instead of top of file to avoid circular import issues with src.core
+        from src.managers.file_manager import FileManager
+        self.engine.register_manager(FileManager())
 
         self.current_config: Optional[RunConfig] = None
         self.run_id: Optional[str] = None
