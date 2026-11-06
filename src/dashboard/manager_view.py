@@ -72,6 +72,15 @@ def _render_metrics(view: ManagerView, snapshot: Snapshot) -> None:
         return
     
     metrics = list(raw_metrics.items()) if isinstance(raw_metrics, dict) else list(raw_metrics)
+
+    # Remove redundant metrics
+    filtered_metrics = []
+    excluded_metrics = ["page_hits", "page_faults", "page_hit_rate", "avg_access_time"]
+    for key, metric in metrics:
+        if key not in excluded_metrics:
+            filtered_metrics.append((key, metric))
+    metrics = filtered_metrics
+        
     
     # Group metrics into rows of 4 columns
     chunk_size = 4
