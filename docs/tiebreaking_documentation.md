@@ -145,3 +145,21 @@ Memory page eviction tie-breaking occurs when a page fault happens and all physi
 * Implementation Reference:\
 
   target_frame = min(self.frames, key=lambda f: (f.load_tick, f.frame_id))
+  Optimal (OPT)
+
+
+
+### 8. Optimal
+* Policy: Evicts the page frame whose contents will be accessed furthest in the future.
+
+* Primary Target: Maximum next_access tick timestamp (or infinity if never accessed again).
+
+* Tie-Breaking Rule:
+
+    * 1st Tie-Breaker: Oldest page (Earliest load_tick).
+
+    * 2nd Tie-Breaker: Lowest physical frame_id.
+
+* Implementation Reference:\
+
+  target_frame = max(self.frames, key=lambda f: (f.next_access, -f.load_tick, f.frame_id))
