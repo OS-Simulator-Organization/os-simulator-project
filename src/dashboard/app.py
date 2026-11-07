@@ -6,6 +6,7 @@ from src.dashboard.manager_view import render_manager_tab, render_sidebar_sectio
 #from src.dashboard.mock_controller import MockController
 from src.core.controller import RealController
 from src.dashboard.views import VIEWS
+from src.dashboard.views.comparison import render_comparison
 
 TABS = [
     "Overview",
@@ -71,5 +72,7 @@ def main() -> None:
                 render_overview()
             elif name in views:
                 render_manager_tab(views[name], snapshot, events)
+            elif name == "Comparison":
+                render_comparison()
             else:
                 render_placeholder(name)
