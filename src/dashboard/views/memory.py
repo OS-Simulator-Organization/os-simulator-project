@@ -1,13 +1,21 @@
 import time
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 from src.core.controller_api import RunConfig, RunStatus, Snapshot
 from src.dashboard.config_sidebar import render_memory_settings
 from src.dashboard.manager_view import ManagerView
+from src.dashboard.memory_history import memory_history
 
 AUTOPLAY = "memory-autoplay"
 LAST_STEP = "memory-last-step"
+HISTORY = "memory-history"
+
+PROCESS_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
+FREE_COLOR = "#d5d5d0"
+HIT_COLOR = "#1baf7a"
+FAULT_COLOR = "#e34948"
 
 
 def describe_config(config: RunConfig) -> str:
@@ -98,6 +106,8 @@ def render_memory_content(snapshot: Snapshot) -> None:
         if frames_data:
             df_frames = pd.DataFrame(frames_data)
             st.dataframe(df_frames, hide_index=True)
+            st.download_button("Download frames (CSV)", mem_mgr.export("csv"), "memory_frames.csv", "text/csv",
+                               key="memory-frames-csv")
         else:
             st.caption("No physical frames allocated yet.")
 
@@ -139,6 +149,76 @@ def render_memory_content(snapshot: Snapshot) -> None:
             else:
                 st.caption("No trace pointers recorded.")
 
+    history = _history(snapshot)
+
+    # Region 3: Frame occupancy over time
+    with st.container(border=True):
+        st.markdown("**Frame occupancy over time**")
+        if history["frames"]:
+            frames = pd.DataFrame(history["frames"])
+            st.altair_chart(occupancy_chart(frames), width="stretch")
+            st.caption("Each cell is one frame at one tick, labeled with its page number. Grey cells are free.")
+            with st.expander("Data table: frame occupancy"):
+                st.dataframe(frames, hide_index=True)
+            st.markdown("##### Evictions")
+            if history["evictions"]:
+                st.dataframe(history["evictions"], hide_index=True)
+            else:
+                st.caption("No pages evicted yet.")
+        else:
+            st.caption("No ticks run yet. Press Step or Run.")
+
+    # Region 4: Hit/fault timeline
+    with st.container(border=True):
+        st.markdown("**Page hits and faults over time**")
+        if history["accesses"]:
+            accesses = pd.DataFrame(history["accesses"])
+            st.altair_chart(access_chart(accesses), width="stretch")
+            with st.expander("Data table: hits and faults"):
+                st.dataframe(accesses, hide_index=True)
+        else:
+            st.caption("No memory references yet.")
+
+
+def _history(snapshot: Snapshot) -> dict:
+    """Replays the loaded run up to the current tick, reusing the last replay while the tick hasn't changed."""
+    if snapshot.status is RunStatus.NOT_LOADED or snapshot.tick == 0:
+        return {"frames": [], "accesses": [], "evictions": []}
+    key = (snapshot.run_id, snapshot.tick)
+    cached = st.session_state.get(HISTORY)
+    if cached is None or cached[0] != key:
+        cached = (key, memory_history(snapshot.config, snapshot.tick))
+        st.session_state[HISTORY] = cached
+    return cached[1]
+
+
+def occupancy_chart(frames: pd.DataFrame) -> alt.LayerChart:
+    processes = sorted(p for p in frames["process"].unique() if p != "free")
+    colors = PROCESS_COLORS[:len(processes)] if len(processes) <= len(PROCESS_COLORS) else [PROCESS_COLORS[0]] * len(processes)
+    base = alt.Chart(frames).encode(
+        x=alt.X("tick:O", title="Simulation time (ms)"),
+        y=alt.Y("frame:O", title="Physical frame"),
+    )
+    cells = base.mark_rect(stroke="white", strokeWidth=1).encode(
+        color=alt.Color("process:N", title="Process",
+                        scale=alt.Scale(domain=[*processes, "free"], range=[*colors, FREE_COLOR])),
+        tooltip=[alt.Tooltip("tick:O", title="Tick (ms)"), alt.Tooltip("frame:O", title="Frame"),
+                 alt.Tooltip("contents:N", title="Contents")],
+    )
+    pages = base.transform_filter(alt.datum.process != "free").mark_text(fontSize=10, color="white").encode(
+        text=alt.Text("page:Q", format="d"))
+    return (cells + pages).properties(title="Frame occupancy over time (label = page number)")
+
+
+def access_chart(accesses: pd.DataFrame) -> alt.Chart:
+    return alt.Chart(accesses).mark_point(size=90, filled=True).encode(
+        x=alt.X("tick:Q", title="Simulation time (ms)", axis=alt.Axis(tickMinStep=1)),
+        y=alt.Y("result:N", title="Reference result", sort=["Hit", "Fault"]),
+        color=alt.Color("result:N", title="Result", scale=alt.Scale(domain=["Hit", "Fault"], range=[HIT_COLOR, FAULT_COLOR])),
+        shape=alt.Shape("result:N", scale=alt.Scale(domain=["Hit", "Fault"], range=["circle", "cross"])),
+        tooltip=[alt.Tooltip("tick:Q", title="Tick (ms)"), alt.Tooltip("result:N", title="Result")],
+    ).properties(title="Page hits and faults over time", height=140)
+
 
 VIEW = ManagerView(
     name="Memory",
@@ -148,4 +228,5 @@ VIEW = ManagerView(
     describe_config=describe_config,
     render_sidebar=render_memory_settings,
     render_content=render_memory_content,
+    test_files=("tests/test_file_memory_integration.py",),
 )
