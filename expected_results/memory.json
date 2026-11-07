@@ -1,0 +1,107 @@
+{
+  "cost_model": "Hit costs 1 ms. Fault costs 1 ms + fault_latency. Average access time is total cost / references.",
+  "cases": [
+    {
+      "name": "spec_sample",
+      "method": "hand-worked",
+      "addresses": ["0x0040", "0x10A0", "0x0044", "0x20B0"],
+      "page_size": 4096,
+      "frames": 4,
+      "fault_latency": 2,
+      "policies": {
+        "FIFO": {
+          "summary": {"references": 4, "hits": 1, "faults": 3, "evictions": 0, "fault_rate_percent": 75.0, "hit_rate_percent": 25.0, "avg_access_time_ms": 2.5}
+        },
+        "LRU": {
+          "summary": {"references": 4, "hits": 1, "faults": 3, "evictions": 0, "fault_rate_percent": 75.0, "hit_rate_percent": 25.0, "avg_access_time_ms": 2.5}
+        }
+      }
+    },
+    {
+      "name": "small_12",
+      "method": "hand-worked",
+      "trace_file": "data/trace_small.txt",
+      "page_size": 4096,
+      "frames": 3,
+      "fault_latency": 0,
+      "policies": {
+        "FIFO": {
+          "summary": {"references": 12, "hits": 3, "faults": 9, "evictions": 6, "fault_rate_percent": 75.0, "hit_rate_percent": 25.0, "avg_access_time_ms": 1.0},
+          "steps": [
+            {"page": 1, "result": "F", "evicted": null, "frames": [1, null, null]},
+            {"page": 2, "result": "F", "evicted": null, "frames": [1, 2, null]},
+            {"page": 3, "result": "F", "evicted": null, "frames": [1, 2, 3]},
+            {"page": 1, "result": "H", "evicted": null, "frames": [1, 2, 3]},
+            {"page": 4, "result": "F", "evicted": 1, "frames": [4, 2, 3]},
+            {"page": 1, "result": "F", "evicted": 2, "frames": [4, 1, 3]},
+            {"page": 5, "result": "F", "evicted": 3, "frames": [4, 1, 5]},
+            {"page": 2, "result": "F", "evicted": 4, "frames": [2, 1, 5]},
+            {"page": 1, "result": "H", "evicted": null, "frames": [2, 1, 5]},
+            {"page": 2, "result": "H", "evicted": null, "frames": [2, 1, 5]},
+            {"page": 3, "result": "F", "evicted": 1, "frames": [2, 3, 5]},
+            {"page": 4, "result": "F", "evicted": 5, "frames": [2, 3, 4]}
+          ]
+        },
+        "LRU": {
+          "summary": {"references": 12, "hits": 4, "faults": 8, "evictions": 5, "fault_rate_percent": 66.6667, "hit_rate_percent": 33.3333, "avg_access_time_ms": 1.0},
+          "steps": [
+            {"page": 1, "result": "F", "evicted": null, "frames": [1, null, null]},
+            {"page": 2, "result": "F", "evicted": null, "frames": [1, 2, null]},
+            {"page": 3, "result": "F", "evicted": null, "frames": [1, 2, 3]},
+            {"page": 1, "result": "H", "evicted": null, "frames": [1, 2, 3]},
+            {"page": 4, "result": "F", "evicted": 2, "frames": [1, 4, 3]},
+            {"page": 1, "result": "H", "evicted": null, "frames": [1, 4, 3]},
+            {"page": 5, "result": "F", "evicted": 3, "frames": [1, 4, 5]},
+            {"page": 2, "result": "F", "evicted": 4, "frames": [1, 2, 5]},
+            {"page": 1, "result": "H", "evicted": null, "frames": [1, 2, 5]},
+            {"page": 2, "result": "H", "evicted": null, "frames": [1, 2, 5]},
+            {"page": 3, "result": "F", "evicted": 5, "frames": [1, 2, 3]},
+            {"page": 4, "result": "F", "evicted": 1, "frames": [4, 2, 3]}
+          ]
+        }
+      }
+    },
+    {
+      "name": "textbook_reference_string",
+      "method": "published textbook result: 15 FIFO faults and 12 LRU faults with 3 frames",
+      "addresses": [7, 0, 1, 2, 0, 3, 0, 4, 2, 3, 0, 3, 2, 1, 2, 0, 1, 7, 0, 1],
+      "page_size": 1,
+      "frames": 3,
+      "fault_latency": 0,
+      "policies": {
+        "FIFO": {"summary": {"references": 20, "hits": 5, "faults": 15, "evictions": 12}},
+        "LRU": {"summary": {"references": 20, "hits": 8, "faults": 12, "evictions": 9}}
+      }
+    },
+    {
+      "name": "belady_3_frames",
+      "method": "published result: Belady's anomaly",
+      "addresses": [1, 2, 3, 4, 1, 2, 5, 1, 2, 3, 4, 5],
+      "page_size": 1,
+      "frames": 3,
+      "fault_latency": 0,
+      "policies": {
+        "FIFO": {"summary": {"references": 12, "hits": 3, "faults": 9, "evictions": 6}}
+      }
+    },
+    {
+      "name": "belady_4_frames",
+      "method": "published result: Belady's anomaly, more frames cause more faults",
+      "addresses": [1, 2, 3, 4, 1, 2, 5, 1, 2, 3, 4, 5],
+      "page_size": 1,
+      "frames": 4,
+      "fault_latency": 0,
+      "policies": {
+        "FIFO": {"summary": {"references": 12, "hits": 2, "faults": 10, "evictions": 6}}
+      }
+    }
+  ],
+  "fault_latency_rule": "A fault at tick t with fault_latency L blocks the process until tick t + L, for any L >= 1.",
+  "fault_latency_cases": [
+    {"fault_tick": 0, "fault_latency": 1, "resolved_tick": 1},
+    {"fault_tick": 0, "fault_latency": 2, "resolved_tick": 2},
+    {"fault_tick": 0, "fault_latency": 3, "resolved_tick": 3},
+    {"fault_tick": 0, "fault_latency": 5, "resolved_tick": 5},
+    {"fault_tick": 0, "fault_latency": 10, "resolved_tick": 10}
+  ]
+}
