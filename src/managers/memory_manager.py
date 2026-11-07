@@ -128,6 +128,9 @@ class MemoryManager(BaseManager):
         """
         self.current_time = 0.0
         self.page_fault_count = 0
+        self.total_requests = 0
+        self.hit_count = 0
+        self.eviction_count = 0
         self.fifo_queue.clear()
         self.fault_latencies.clear()
         
