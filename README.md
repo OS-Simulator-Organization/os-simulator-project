@@ -3,10 +3,12 @@
 An interactive, multi-layered Operating System simulator built for OS class.
 
 ## Live Demo
+
 - View the latest, live version of our simulator dashboard here: https://csc-301-os-simulator.streamlit.app
 - Deployed using [Streamlit Community Cloud](https://streamlit.io/cloud)
 
 ## Project Structure
+
 - `src/core/`: Shared data model, event schema, base manager, and simulation controller
 - `src/managers/`: Subsystem managers (process, memory, file system, device, network, security)
 - `src/dashboard/`: Streamlit dashboard, run configuration sidebar, and per-manager views
@@ -16,6 +18,7 @@ An interactive, multi-layered Operating System simulator built for OS class.
 - `data/`: Baseline input CSV and JSON scenario files
 
 ## Setup Instructions
+
 1. Clone repository: `git clone https://github.com/OS-Simulator-Organization/os-simulator-project.git`
 2. Create virtual environment: `python3 -m venv .venv`
 3. Activate virtual environment:
@@ -26,5 +29,7 @@ An interactive, multi-layered Operating System simulator built for OS class.
 6. Run the dashboard locally: `streamlit run streamlit_app.py`
 
 ## Sourced Tools & GenAI Statement
-- **Libraries Used**: `streamlit` for the dashboard, `jsonschema` for event validation, `pytest` for testing, `dataclasses` (Python standard library) for data modeling.
+
+- **Major Libraries Used**: `streamlit` for the dashboard, `jsonschema` for event validation, `pytest` for testing, `dataclasses` (Python standard library) for data modeling.
+- **Minor Libraries Used**: `abc`, `pathlib`, `pandas`, `heapq`, `typing`, `enum`, `os`, `uuid`
 - **AI Assistance**: Consulted GenAI for architecture design advice, class diagram layouts, and base template code structure in compliance with course rules.
