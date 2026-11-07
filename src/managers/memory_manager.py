@@ -422,9 +422,6 @@ class MemoryManager(BaseManager):
                 # Check if the fault latency penalty has completed
                 if self.fault_latencies[pid] <= 0:
                     resolved_pids.append(pid)
-                else:
-                    # If fault latency is 0, resolve it on the next tick
-                    self.fault_latencies[pid] = 1
 
         # Clean up resolved latencies and emit fault resolution events
         for pid in resolved_pids:
