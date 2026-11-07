@@ -128,6 +128,9 @@ class MemoryManager(BaseManager):
         """
         self.current_time = 0.0
         self.page_fault_count = 0
+        self.total_requests = 0
+        self.hit_count = 0
+        self.eviction_count = 0
         self.fifo_queue.clear()
         self.fault_latencies.clear()
         
@@ -419,9 +422,6 @@ class MemoryManager(BaseManager):
                 # Check if the fault latency penalty has completed
                 if self.fault_latencies[pid] <= 0:
                     resolved_pids.append(pid)
-                else:
-                    # If fault latency is 0, resolve it on the next tick
-                    self.fault_latencies[pid] = 1
 
         # Clean up resolved latencies and emit fault resolution events
         for pid in resolved_pids:
