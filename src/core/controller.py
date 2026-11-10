@@ -91,11 +91,10 @@ class SimulationController:
                 self._handle_event(evt, step_events)
         
         running_proc = proc_mgr.get_running_process() if proc_mgr else None
-        terminated_procs = proc_mgr.get_terminated_process() if proc_mgr else []
 
         # Step Memory Manager
         if mem_mgr:
-            new_events = mem_mgr.step(self.clock, running_proc, terminated_procs)
+            new_events = mem_mgr.step(self.clock, running_proc)
             for evt in new_events:
                 self._handle_event(evt, step_events)
 
@@ -146,9 +145,9 @@ class SimulationController:
 
         self.is_running = False
         return all_run_events
+    
     def pause(self) -> None:
         self.is_running =False
-    
 
     def reset(self) -> None:
         """Resets the simulation engine clock, event queue, logs, and manager states."""
@@ -160,7 +159,6 @@ class SimulationController:
         
         for manager in self.managers.values():
             manager.reset()
-    
 
     def get_system_snapshot(self) -> Dict[str, Any]:
         """Compiles a complete snapshot of all managers for dashboard updates."""
@@ -221,8 +219,11 @@ class RealController:
         self.engine.set_seed(config.seed)
 
         # Configure managers with new run settings
+
+        # Load process manager workload based on scenario
         proc_mgr = self.engine.get_manager("Process")
-        if proc_mgr and config.process.custom_workload:
+        if proc_mgr and config.scenario_id == "custom":
+            # Where is this data coming from on custom workload
             proc_mgr.configure({
                 "policy": config.process.policy.value,
                 "quantum_ms": config.process.quantum_ms,
@@ -243,10 +244,10 @@ class RealController:
                 proc_mgr.load(processes)
         elif proc_mgr and config.scenario_id == "baseline":
             proc_mgr.configure({
-                "policy": "ROUND_ROBIN",
-                "quantum_ms": 4,
-                "context_switch_ms": 0,
-                "aging_interval": 0,
+                "policy": config.process.policy.value,
+                "quantum_ms": config.process.quantum_ms,
+                "context_switch_ms": config.process.context_switch_ms,
+                "aging_interval": config.process.aging_interval,
             })
             baseline_workload = [
                 {"pid": "P1", "arrival_time": 0, "burst_time": 8, "priority": 3, "owner_id": "user1"},
@@ -266,6 +267,7 @@ class RealController:
             ]
             proc_mgr.load(processes)
         else:
+            # ProcessConfig has no attribute "workload file"
             workload_file = getattr(config.process, "workload_file", "data/processes.csv")
             try:
                 processes = load_and_validate_processes(workload_file)
@@ -274,30 +276,25 @@ class RealController:
             except Exception:
                 pass
             
-
-        # MEMORY MANAGER TEST CONFIGURATION WITH DEFAULT VALUES            
+        # Load memory manager workload based on scenario id
         mem_mgr = self.engine.get_manager("Memory")
-        if mem_mgr and config.memory.traces:
+        if mem_mgr and config.scenario_id == "custom":
             mem_mgr.configure({
                 "algorithm": config.memory.algorithm.value,
                 "page_size": config.memory.page_size,
                 "total_frames": config.memory.total_frames,
                 "fault_latency": config.memory.fault_latency,
             })
-            custom_traces = config.memory.traces if config.memory.traces else {}
-            mem_mgr.load({
-                "traces": custom_traces
-            })
+            
+            mem_mgr.load(config.memory.trace)
         elif mem_mgr and config.scenario_id == "baseline":
             mem_mgr.configure({
-                "algorithm": "FIFO",
-                "page_size": 4096,
-                "total_frames": 4,
-                "fault_latency": 0,
+                "algorithm": config.memory.algorithm.value,
+                "page_size": config.memory.page_size,
+                "total_frames": config.memory.total_frames,
+                "fault_latency": config.memory.fault_latency,
             })
-            mem_mgr.load({
-                "traces": {"P1": [0x0040, 0x10A0, 0x0044, 0x20B0]}
-            })
+            mem_mgr.load([0x0040, 0x10A0, 0x0044, 0x20B0])
 
 
         # FILE MANAGER TEST CONFIGURATION WITH DEFAULT VALUES

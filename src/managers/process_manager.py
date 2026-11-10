@@ -31,8 +31,6 @@ class ProcessManager(BaseManager):
         self.current_time: float = 0.0
 
         self.gantt_ticks: List[Dict[str, Any]] = []
-        
-
 
 
     # Exposed manager API methods
@@ -176,8 +174,7 @@ class ProcessManager(BaseManager):
         """
         total_processes = len(self.workload)
         completed_count = len(self.completed_processes)
-        
-
+    
         # Calculate averages
         if completed_count > 0:
             avg_waiting_time = sum(p.wait_time for p in self.completed_processes) / completed_count
@@ -207,12 +204,14 @@ class ProcessManager(BaseManager):
         return {
             "total_processes": int(total_processes),
             "completed_processes": int(completed_count),
+            "throughput": float(throughput),
+            "makespan": float(makespan),
+
             "avg_waiting_time": float(avg_waiting_time),
             "avg_turnaround_time": float(avg_turnaround_time),
             "avg_response_time": float(avg_response_time),
-            "makespan": float(makespan),
             "utilization": float(utilization),
-            "throughput": float(throughput),
+
             "context_switches": int((self.context_switch_time) / self.context_switch_cost if self.context_switch_cost > 0 else 0),
             "queue_length": int(len(self.ready_queue)),
         }
@@ -423,10 +422,7 @@ class ProcessManager(BaseManager):
         if self.algorithm in ["SJF", "FCFS", "PRIORITY"]: # Non preemptive work selection
             
             if self.running_process == None: # If the cpu is idle select next process
-                if not self.ready_queue:
-                    # cpu idle
-                    print()
-                else:
+                if self.ready_queue:
                     # Set next process as running process, change its state, set start time
                     self.running_process = self.ready_queue.pop(0)
                     self.running_process.state = ProcessState.RUNNING
@@ -484,10 +480,7 @@ class ProcessManager(BaseManager):
                         self.cs_ticks_remaining = self.context_switch_cost
 
             if self.running_process == None and self.cs_ticks_remaining == 0: # If the cpu is idle and not in a cs, select next process
-                if not self.ready_queue:
-                    # cpu idle
-                    print()
-                else:
+                if self.ready_queue:
                     # Set next process as running process, change its state, set start time
                     self.running_process = self.ready_queue.pop(0)
                     self.running_process.state = ProcessState.RUNNING
@@ -509,10 +502,7 @@ class ProcessManager(BaseManager):
         elif self.algorithm == "ROUND_ROBIN": # Preemptive RR selection
 
             if self.running_process == None and self.cs_ticks_remaining == 0: # If the cpu is idle and not in a cs, select next process
-                if not self.ready_queue:
-                    # cpu idle
-                    print()
-                else:
+                if self.ready_queue:
                     # Set next process as running process, change its state, set start time
                     self.running_process = self.ready_queue.pop(0)
                     self.running_process.state = ProcessState.RUNNING

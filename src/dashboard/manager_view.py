@@ -109,38 +109,29 @@ def _render_test_results(view: ManagerView) -> None:
 
 
 def _render_metrics(view: ManagerView, snapshot: Snapshot) -> None:
+    if view.manager == "None":
+        return
+    
     raw_metrics = snapshot.metrics.get(view.manager, {})
     if not raw_metrics:
         st.caption("No metrics yet. Load a run to see them.")
         return
     
-    metrics = list(raw_metrics.items()) if isinstance(raw_metrics, dict) else list(raw_metrics)
-
-    # Remove redundant metrics
-    filtered_metrics = []
-    excluded_metrics = ["page_hits", "page_faults", "page_hit_rate", "avg_access_time"]
-    for key, metric in metrics:
-        if key not in excluded_metrics:
-            filtered_metrics.append((key, metric))
-    metrics = filtered_metrics
-        
-    
+    metrics = list(raw_metrics.items()) if isinstance(raw_metrics, dict) else list(raw_metrics)        
     # Group metrics into rows of 4 columns
     chunk_size = 4
     for i in range(0, len(metrics), chunk_size):
         chunk = metrics[i:i + chunk_size]
-        cols = st.columns(len(chunk))
+        cols = st.columns(chunk_size)
         for col, (key, metric) in zip(cols, chunk):
             val = metric.value
-
             if val.is_integer():
                 val_str = f"{int(val)}"
             else:
                 val_str = f"{val:.2f}"
 
-
             label = key.replace("_", " ").capitalize()
-            
+
             # Render custom card for each metric
             with col:
                 st.markdown(

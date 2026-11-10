@@ -22,7 +22,7 @@ from src.core.controller_api import(
 SEED = "seed"
 SCENARIO = "scenario"
 
-SCENARIOS = ["baseline", "none"]
+SCENARIOS = ["baseline", "custom"]
 
 # Process Config Keys
 POLICY = "process_policy"
@@ -52,6 +52,9 @@ PAGE_SIZE_OPTIONS = [256, 512, 1024, 2048, 4096, 8192]
 
 
 def render_global_settings() -> None:
+    if "pending_scenario" in st.session_state:
+        st.session_state[SCENARIO] = st.session_state.pop("pending_scenario")
+
     st.number_input("Seed", min_value=0, value=0, step=1, key=SEED)
     st.selectbox("Scenario", SCENARIOS, key=SCENARIO)
 
@@ -77,7 +80,6 @@ def read_config() -> RunConfig:
 
     policy = POLICIES_BY_LABEL[state.get(POLICY, POLICY_LABELS[SchedulingPolicy.FCFS])]
     round_robin = policy is SchedulingPolicy.ROUND_ROBIN
-    srtf = policy is SchedulingPolicy.SRTF
 
     alg_str = state.get(MEM_ALGORITHM, ReplacementAlgorithm.FIFO.value)
     replacement_alg = ReplacementAlgorithm(alg_str)
@@ -88,7 +90,7 @@ def read_config() -> RunConfig:
         process=ProcessConfig(
             policy=policy,
             quantum_ms=state.get(QUANTUM, 4) if round_robin else None,
-            context_switch_ms=state.get(CONTEXT_SWITCH, 0) if round_robin or srtf else 0 ,
+            context_switch_ms=state.get(CONTEXT_SWITCH, 0),
             aging_interval=state.get(AGING_INTERVAL, 0),
             custom_workload=state.get("custom_workload", []),
         ),
@@ -97,21 +99,19 @@ def read_config() -> RunConfig:
             page_size=state.get(PAGE_SIZE, 4096),
             total_frames=state.get(TOTAL_FRAMES, 4),
             fault_latency=state.get(FAULT_LATENCY, 2),
-            traces=state.get("custom_traces", {}),
+            trace=state.get("custom_trace", []),
         )
     )
 
 
-def config_errors(config: RunConfig, controller: ControllerAPI) -> List[str]:
+def config_errors(config: RunConfig) -> List[str]:
     errors = config.validate()
-    if config.process.policy not in controller.supported_policies:
-        errors.append(f"{POLICY_LABELS[config.process.policy]} is not supported yet.")
     return errors
 
 
 def render_load_panel(controller: ControllerAPI) -> None:
     config = read_config()
-    errors = config_errors(config, controller)
+    errors = config_errors(config)
     for error in errors:
         st.error(error)
 

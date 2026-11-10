@@ -93,7 +93,6 @@ class PageFrame:
     """Represents a physical memory frame and its virtual page mapping"""
     frame_id: int
     page_number: Optional[int] = None
-    pid: Optional[str] = None
     is_modified: bool = False
     last_accessed: int = 0
     load_tick: int = 0
