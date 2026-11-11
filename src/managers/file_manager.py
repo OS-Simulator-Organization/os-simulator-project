@@ -1,7 +1,8 @@
 from typing import Dict, List, Any, Optional
 from src.core.base_manager import BaseManager
-from src.core.models import FileNode
+from src.core.models import FileNode, Process
 from src.core.events import EventRecord
+
 
 
 class FileManager(BaseManager):
@@ -20,6 +21,9 @@ class FileManager(BaseManager):
         self.writes_count: int = 0
         self.bytes_read: int = 0
         self.bytes_written: int = 0
+
+        # Maintain list of blocked processes to prevent unnecessary call to unblock_process in ProcessManager
+        self.blocked_processes: List[str] = []
 
     def configure(self, config: Dict[str, Any]) -> None:
         """Initialize disk geometry and allocation policies"""
@@ -266,6 +270,10 @@ class FileManager(BaseManager):
                     outcome="SUCCESS",
                     explanatory_message=f"Path: {path}, Size: {len(result)}"
                 ))
+                # After each successful operation, remove pid if in blocked_processes (event will cause it to be unblocked)
+                for p in self.blocked_processes:
+                    if pid == p:
+                        self.blocked_processes.remove(pid)
             else:
                 events.append(EventRecord(
                     timestamp=self.current_time,
@@ -278,6 +286,8 @@ class FileManager(BaseManager):
                     outcome="ERROR",
                     explanatory_message=f"Path: {path}, Error: {result}"
                 ))
+                # After each failed operation, append process to blocked_processes (the event will cause blocking)
+                self.blocked_processes.append(pid)
 
         elif operation_type == "WRITE":
             content = req.get("content", "")
@@ -294,6 +304,9 @@ class FileManager(BaseManager):
                     outcome="SUCCESS",
                     explanatory_message=f"Path: {path}, Bytes: {len(content)}"
                 ))
+                for p in self.blocked_processes:
+                    if pid == p:
+                        self.blocked_processes.remove(pid)
             else:
                 events.append(EventRecord(
                     timestamp=self.current_time,
@@ -306,6 +319,7 @@ class FileManager(BaseManager):
                     outcome="ERROR",
                     explanatory_message=f"Path: {path}, Error: {msg}"
                 ))
+                self.blocked_processes.append(pid)
 
         elif operation_type == "CREATE":
             is_dir = req.get("is_dir", False)
@@ -326,6 +340,9 @@ class FileManager(BaseManager):
                     outcome="SUCCESS",
                     explanatory_message=f"Path: {path}"
                 ))
+                for p in self.blocked_processes:
+                    if pid == p:
+                        self.blocked_processes.remove(pid)
             else:
                 events.append(EventRecord(
                     timestamp=self.current_time,
@@ -338,6 +355,7 @@ class FileManager(BaseManager):
                     outcome="ERROR",
                     explanatory_message=f"Path: {path}, Error: {msg}"
                 ))
+                self.blocked_processes.append(pid)
 
         elif operation_type == "DELETE":
             success, msg = self.delete(path, user_id=pid)
@@ -353,6 +371,9 @@ class FileManager(BaseManager):
                     outcome="SUCCESS",
                     explanatory_message=f"Path: {path}"
                 ))
+                for p in self.blocked_processes:
+                    if pid == p:
+                        self.blocked_processes.remove(pid)
             else:
                 events.append(EventRecord(
                     timestamp=self.current_time,
@@ -365,6 +386,7 @@ class FileManager(BaseManager):
                     outcome="ERROR",
                     explanatory_message=f"Path: {path}, Error: {msg}"
                 ))
+                self.blocked_processes.append(pid)
 
         return events
 

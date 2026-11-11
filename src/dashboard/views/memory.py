@@ -82,7 +82,6 @@ def render_memory_content(snapshot: Snapshot) -> None:
 
     # Pull memory manager snapshot state
     mgr_state = mem_mgr.snapshot() if mem_mgr and hasattr(mem_mgr, "snapshot") else {}
-    print(mgr_state)
 
 
     mem_metrics = snapshot.metrics.get("Memory", {})

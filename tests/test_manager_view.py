@@ -35,7 +35,7 @@ def run(function, **kwargs) -> AppTest:
 
 
 def test_views_use_schema_manager_names():
-    schema_names = {"Process", "Memory", "File", "Security", "Device", "Network", "Parallel"}
+    schema_names = {"Process", "Memory", "File", "Security", "Device", "Network", "Parallel", "None"}
     assert {view.manager for view in VIEWS} == schema_names
 
 

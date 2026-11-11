@@ -8,8 +8,7 @@ from src.core.events import EventRecord
 from src.core.models import Process
 from src.core.importers import load_and_validate_processes
 
-from src.managers.process_manager import ProcessManager
-from src.managers.memory_manager import MemoryManager
+
 
 from src.core.controller_api import (
     #Eventually, we can import all the necessary classes from controller_api.py here. For now, we will import the ones we need.
@@ -73,7 +72,7 @@ class SimulationController:
         """
         step_events: List[EventRecord] = []
 
-        # Process scheduled events
+        # Process scheduled events whose timestamp matches current clock
         while self.event_queue and self.event_queue[0].timestamp <= self.clock:
             evt = heapq.heappop(self.event_queue)
             self.global_event_log.append(evt)
@@ -109,26 +108,42 @@ class SimulationController:
 
     def _handle_event(self, evt: EventRecord, step_events: List[EventRecord]) -> None:
         """Helper to route cross-manager events and record logs."""
+
+        new_events: List[EventRecord] = []
         
         if evt.manager == "Memory":
             proc_mgr = self.get_manager("Process")
             if evt.event_type == "PAGE_FAULT" and proc_mgr:
-                proc_mgr.block_process(evt.entity_id)
+                new_events.extend(proc_mgr.block_process(evt.entity_id, evt.manager))
             elif evt.event_type == "PAGE_FAULT_RESOLVED" and proc_mgr:
-                proc_mgr.unblock_process(evt.entity_id)
+                new_events.extend(proc_mgr.unblock_process(evt.entity_id, evt.manager))
+        
         elif evt.manager == "File":
             proc_mgr = self.get_manager("Process")
-            if evt.event_type == "FILE_IO_BLOCKED" and proc_mgr:
-                proc_mgr.block_process(evt.entity_id)
+            file_mgr = self.get_manager("File")
+
+            if evt.event_type == "FILE_OP_ERROR" and proc_mgr:
+                new_events.extend(proc_mgr.block_process(evt.entity_id, evt.manager))
             elif evt.event_type in ("FILE_READ_SUCCESS", "FILE_WRITE_SUCCESS", "FILE_CREATE_SUCCESS", "FILE_DELETE_SUCCESS") and proc_mgr:
-                proc_mgr.unblock_process(evt.entity_id)
+                # Only unblocked processes that are already blocked, preventing ghost unblockings
+                if evt.entity_id in file_mgr.blocked_processes:
+                    new_events.extend(proc_mgr.unblock_process(evt.entity_id, evt.manager))
 
-
+        
         if evt.timestamp > self.clock:
-            self.schedule_event(evt)  
+            self.schedule_event(evt)
         else:
             self.global_event_log.append(evt)
             step_events.append(evt)
+
+        # Handle, schedule, and log all triggered cross-manager events
+        for new in new_events:
+            if new.timestamp > self.clock:
+                self.schedule_event(new)
+            else:
+                self.global_event_log.append(new)
+                step_events.append(new)
+
 
     def run(self, max_ticks: int = 100) -> List[EventRecord]:
         """Runs the simulation continuously until max ticks or empty queue."""
@@ -193,11 +208,15 @@ class RealController:
     def __init__(self, engine: Optional[SimulationController] = None):
         self.engine = engine if engine else SimulationController()
 
-        self.engine.register_manager(ProcessManager())
-        self.engine.register_manager(MemoryManager())
+        
 
         # imported here instead of top of file to avoid circular import issues with src.core
+        from src.managers.process_manager import ProcessManager
+        from src.managers.memory_manager import MemoryManager
         from src.managers.file_manager import FileManager
+        
+        self.engine.register_manager(ProcessManager())
+        self.engine.register_manager(MemoryManager())
         self.engine.register_manager(FileManager())
 
         self.current_config: Optional[RunConfig] = None
@@ -222,14 +241,13 @@ class RealController:
 
         # Load process manager workload based on scenario
         proc_mgr = self.engine.get_manager("Process")
-        if proc_mgr and config.scenario_id == "custom":
-            # Where is this data coming from on custom workload
-            proc_mgr.configure({
+        proc_mgr.configure({
                 "policy": config.process.policy.value,
                 "quantum_ms": config.process.quantum_ms,
                 "context_switch_ms": config.process.context_switch_ms,
                 "aging_interval": config.process.aging_interval,
             })
+        if proc_mgr and config.scenario_id == "custom":
             if config.process.custom_workload:
                 processes = []
                 for p_dict in config.process.custom_workload:
@@ -242,13 +260,8 @@ class RealController:
                         remaining_time=int(p_dict["burst_time"])
                     ))
                 proc_mgr.load(processes)
+
         elif proc_mgr and config.scenario_id == "baseline":
-            proc_mgr.configure({
-                "policy": config.process.policy.value,
-                "quantum_ms": config.process.quantum_ms,
-                "context_switch_ms": config.process.context_switch_ms,
-                "aging_interval": config.process.aging_interval,
-            })
             baseline_workload = [
                 {"pid": "P1", "arrival_time": 0, "burst_time": 8, "priority": 3, "owner_id": "user1"},
                 {"pid": "P2", "arrival_time": 1, "burst_time": 4, "priority": 1, "owner_id": "user1"},
@@ -285,8 +298,10 @@ class RealController:
                 "total_frames": config.memory.total_frames,
                 "fault_latency": config.memory.fault_latency,
             })
-            
-            mem_mgr.load(config.memory.trace)
+            if config.memory.trace:
+                mem_mgr.load(config.memory.trace)
+
+
         elif mem_mgr and config.scenario_id == "baseline":
             mem_mgr.configure({
                 "algorithm": config.memory.algorithm.value,

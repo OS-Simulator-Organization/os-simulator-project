@@ -82,6 +82,7 @@ class Process:
     response_time: int = -1
     wait_time: int = -1
 
+
     state: ProcessState = ProcessState.NEW
 
     open_files: List[str] = field(default_factory=list)

@@ -46,9 +46,9 @@ def validate_workload(df: pd.DataFrame) -> List[str]:
                 errors.append(f"Row {i + 1} ('{pid_str}'): Process ID must follow the 'P#' format (e.g., P1, P2).")
                 
         if pd.isna(arrival.iloc[i]) or arrival.iloc[i] < 0:
-            errors.append(f"Process row {i + 1}: Arrival time must be >= 0.")
+            errors.append(f"P{i + 1}: Arrival time must be >= 0.")
         if pd.isna(burst.iloc[i]) or burst.iloc[i] <= 0:
-            errors.append(f"Process row {i + 1}: Burst time must be > 0.")
+            errors.append(f"P{i + 1}: Burst time must be > 0.")
     return errors
 
 def validate_trace(df: pd.DataFrame) -> Tuple[List[str], List[Any]]:
@@ -133,7 +133,7 @@ def render_scenario_builder(snapshot: Snapshot) -> None:
         state.current_trace = edited_trace_df
 
     # Process import file region
-    uploaded_file = st.file_uploader("Import Workload (JSON/CSV)", type=["json", "csv"])
+    uploaded_file = st.file_uploader("Import Process Workload (JSON/CSV)", type=["json", "csv"])
     if uploaded_file is not None and uploaded_file.file_id != state.get("imported_file_id"):
         state.imported_file_id = uploaded_file.file_id
         try:

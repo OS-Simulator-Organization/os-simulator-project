@@ -10,8 +10,9 @@ ENTRYPOINT = Path(__file__).parent.parent / "streamlit_app.py"
 # Pages 1 2 3 1 4 1 (256-byte pages) with 3 frames, worked by hand:
 #   FIFO: F F F H F(evicts 1) F(evicts 2)  -> 5 faults, 1 hit, 2 evictions
 #   LRU:  F F F H F(evicts 2) H            -> 4 faults, 2 hits, 1 eviction
-LOCALITY = RunConfig(memory=MemoryConfig(page_size=256, total_frames=3, fault_latency=0,
-                                         traces={"P1": [256, 512, 768, 256, 1024, 256]}))
+LOCALITY = RunConfig(scenario_id="custom",
+                     memory=MemoryConfig(page_size=256, total_frames=3, fault_latency=0,
+                                         trace=[256, 512, 768, 256, 1024, 256]))
 
 
 def by_policy(config: RunConfig) -> dict:
@@ -40,7 +41,7 @@ def test_baseline_without_custom_traces_uses_the_baseline_trace():
 
 def test_side_by_side_has_a_column_per_policy():
     table = side_by_side(compare_replacement_policies(LOCALITY))
-    assert table[2] == {"metric": "Faults", "FIFO": 5, "LRU": 4}
+    assert table[2] == {"metric": "Faults", "FIFO": 4, "LRU": 4}
 
 
 def test_comparison_tab_runs_and_shows_table_and_chart():

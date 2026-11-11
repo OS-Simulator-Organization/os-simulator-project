@@ -105,8 +105,6 @@ class MemoryManager(BaseManager):
             frame.last_accessed = 0
             frame.load_tick = 0
 
-
-
     def step(self, current_time: float, running_process: Optional[Process] = None) -> List[EventRecord]:
         """
         Advance memory simulation by one tick
@@ -200,7 +198,7 @@ class MemoryManager(BaseManager):
             hit_rate = ((self.hit_count * 1.0) / self.total_requests)  * 100
 
         # Gather other metrics
-        allocated_frames = sum(1 for f in self.frames if f.pid is not None)
+        allocated_frames = sum(1 for f in self.frames if f.page_number is not None)
         free_frames = self.total_frames - allocated_frames
         utilization = (allocated_frames / self.total_frames) if self.total_frames > 0 else 0.0
 
@@ -378,7 +376,7 @@ class MemoryManager(BaseManager):
             del self.fault_latencies[pid]
 
             events.append(EventRecord(
-                timestamp=self.current_time,
+                timestamp=(self.current_time),
                 manager="Memory",
                 event_type="PAGE_FAULT_RESOLVED",
                 entity_id=pid,
