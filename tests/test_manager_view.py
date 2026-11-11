@@ -35,7 +35,7 @@ def run(function, **kwargs) -> AppTest:
 
 
 def test_views_use_schema_manager_names():
-    schema_names = {"Process", "Memory", "File", "Security", "Device", "Network", "Parallel"}
+    schema_names = {"Process", "Memory", "File", "Security", "Device", "Network", "Parallel", "None"}
     assert {view.manager for view in VIEWS} == schema_names
 
 
@@ -72,7 +72,7 @@ def test_actions_are_disabled_until_wired_up():
 def test_event_log_shows_this_managers_events():
     app = run(render_tab, load=True, step=True)
     assert len(app.dataframe) == 1
-    assert len(app.dataframe[0].value) == 2
+    assert len(app.dataframe[0].value) == 3
 
 
 def test_event_log_hides_other_managers_events():

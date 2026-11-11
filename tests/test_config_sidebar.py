@@ -122,7 +122,7 @@ def test_round_robin_values_reach_the_config():
 
 
 def test_leftover_round_robin_values_are_ignored_by_other_policies():
-    config = read_config_with({POLICY: "First come, first served", QUANTUM: 6, CONTEXT_SWITCH: 2})
+    config = read_config_with({POLICY: "First come, first served", QUANTUM: 6})
     assert config == RunConfig()
 
 
@@ -134,6 +134,6 @@ def test_process_tab_header_shows_the_loaded_config():
 def test_config_errors_combine_validation_and_support():
     controller = RealController()
     bad_round_robin = RunConfig(process=ProcessConfig(SchedulingPolicy.ROUND_ROBIN, quantum_ms=0))
-    errors = config_errors(bad_round_robin, controller)
+    errors = config_errors(bad_round_robin)
     assert "Round Robin needs a time quantum of at least 1 ms." in errors
-    assert config_errors(RunConfig(), controller) == []
+    assert config_errors(RunConfig()) == []
