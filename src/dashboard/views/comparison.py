@@ -36,6 +36,7 @@ def compare_replacement_policies(config: RunConfig) -> List[Dict[str, Any]]:
     """Runs FIFO and LRU to completion on the same config and returns one row of memory metrics per policy."""
     trace = config.memory.trace or BASELINE_TRACE
     rows = []
+    
     for algorithm in ReplacementAlgorithm:
         controller = RealController()
         controller.load(replace(config, memory=replace(config.memory, algorithm=algorithm, trace=trace)))

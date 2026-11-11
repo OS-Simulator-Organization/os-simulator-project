@@ -3,7 +3,7 @@ from pathlib import Path
 from streamlit.testing.v1 import AppTest
 
 from src.core.controller import RealController
-from src.core.controller_api import MemoryConfig, RunConfig
+from src.core.controller_api import MemoryConfig, RunConfig, ProcessConfig
 from src.dashboard.memory_history import memory_history
 
 ENTRYPOINT = Path(__file__).parent.parent / "streamlit_app.py"
@@ -37,25 +37,35 @@ def test_baseline_trace_hits_and_faults_by_tick():
     # on tick 2 and the fourth after it is dispatched again at tick 4.
     snapshot = finished_run(RunConfig())
     accesses = memory_history(snapshot.config, snapshot.tick)["accesses"]
-    assert [(a["tick"], a["result"]) for a in accesses] == [(0, "Fault"), (1, "Fault"), (2, "Hit"), (4, "Fault")]
+    assert [(a["tick"], a["result"]) for a in accesses] == [(0, "Fault"), (1, "Fault"), (2, "Hit"), (3, "Fault")]
 
 
 def test_free_frames_are_marked_free():
-    config = RunConfig(memory=MemoryConfig(page_size=256, total_frames=3, fault_latency=0, traces={"P1": [256]}))
+    config = RunConfig(memory=MemoryConfig(page_size=256, total_frames=3, fault_latency=0, trace=[256]))
     history = memory_history(config, 1)
-    assert [row["process"] for row in history["frames"]] == ["P1", "free", "free"]
+    assert [row["page"] for row in history["frames"]] == [0, None, None]
 
 
 def test_evictions_match_the_hand_calculation():
     # Pages 1 2 3 1 4 1 with 3 frames under FIFO: page 4 evicts page 1 (frame 0), then page 1 evicts page 2 (frame 1).
-    config = RunConfig(memory=MemoryConfig(page_size=256, total_frames=3, fault_latency=0,
-                                           traces={"P1": [256, 512, 768, 256, 1024, 256]}))
+    config = RunConfig(
+    scenario_id="custom",
+    process=ProcessConfig(
+        custom_workload=[
+            {"pid": "P1", "arrival_time": 0, "burst_time": 20, "priority": 1}
+        ]
+    ),
+    memory=MemoryConfig(
+        page_size=256,
+        total_frames=3,
+        fault_latency=0,
+        trace=[256, 512, 768, 256, 1024, 256]))
     controller = RealController()
     controller.load(config)
     snapshot = controller.run().snapshot
     evictions = memory_history(config, snapshot.tick)["evictions"]
     assert [(e["frame"], e["evicted"], e["loaded"]) for e in evictions] == [
-        (0, "P1 page 1", "P1 page 4"), (1, "P1 page 2", "P1 page 1"),
+        (0, "page 1", "page 4"), (1, "page 2", "page 1"),
     ]
     assert len(evictions) == snapshot.metrics["Memory"]["eviction_count"].value
 

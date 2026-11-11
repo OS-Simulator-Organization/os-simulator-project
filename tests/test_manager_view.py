@@ -72,7 +72,7 @@ def test_actions_are_disabled_until_wired_up():
 def test_event_log_shows_this_managers_events():
     app = run(render_tab, load=True, step=True)
     assert len(app.dataframe) == 1
-    assert len(app.dataframe[0].value) == 2
+    assert len(app.dataframe[0].value) == 3
 
 
 def test_event_log_hides_other_managers_events():

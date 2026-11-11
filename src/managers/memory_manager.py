@@ -179,7 +179,8 @@ class MemoryManager(BaseManager):
             # Capture page table mappings
             "page_table": self.page_table,
             # Capture current progress of per-process address traces
-            "trace_pointer": self.trace,
+            "trace_pointer": self.trace_pointer,
+            "trace": self.trace,
             # Capture active fault latencies if any processes are currently blocked
             "fault_latencies": self.fault_latencies
         }
@@ -491,7 +492,8 @@ class MemoryManager(BaseManager):
 
             # Advance trace pointer and trigger fault latency blocking state
             self.trace_pointer = self.trace_pointer + 1
-            self.fault_latencies[pid] = self.fault_latency
+            if self.fault_latency != 0:
+                self.fault_latencies[pid] = self.fault_latency
             events.append(EventRecord(
                 timestamp=self.current_time,
                 manager="Memory",
@@ -503,6 +505,18 @@ class MemoryManager(BaseManager):
                 outcome="SUCCESS",
                 duration_or_cost=self.fault_latency
             ))
+
+            if self.fault_latency == 0:
+                events.append(EventRecord(
+                    timestamp=(self.current_time),
+                    manager="Memory",
+                    event_type="PAGE_FAULT_RESOLVED",
+                    entity_id=pid,
+                    action="UNBLOCK",
+                    previous_state="WAITING",
+                    new_state="READY",
+                    outcome="SUCCESS"
+                ))
 
 
         return events

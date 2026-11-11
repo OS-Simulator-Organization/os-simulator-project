@@ -30,12 +30,11 @@ def memory_history(config: RunConfig, upto_tick: int) -> Dict[str, List[Dict[str
         controller.step()
         state = memory.snapshot()
         for frame in state["frames"]:
-            pid, page = frame["process_id"], frame["page_number"]
-            contents = f"{pid} page {page}" if pid is not None else "free"
+            page = frame["page_number"]
+            contents = f"page {page}" if page is not None else "free"
             frames.append({
                 "tick": tick,
                 "frame": frame["frame_id"],
-                "process": pid if pid is not None else "free",
                 "page": page,
                 "contents": contents,
             })

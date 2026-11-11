@@ -350,14 +350,10 @@ class ProcessManager(BaseManager):
     def block_process(self, pid, manager) -> None:
         """Blocks a running process due to a page fault and frees the CPU"""
         events: List[EventRecord] = []
-
         if self.running_process and self.running_process.pid == pid:
             p = self.running_process
             p.state = ProcessState.WAITING
             p.blocked_at = self.current_time
-            for i, p in enumerate(self.ready_queue):
-                if p.pid == pid:
-                    self.ready_queue.pop(i)
             
             self.running_process = None
             events.append(EventRecord(
@@ -613,7 +609,6 @@ class ProcessManager(BaseManager):
                 p.completion_time = self.current_time + 1
                 p.turnaround_time = p.completion_time - p.arrival_time
                 p.response_time = p.first_start - p.arrival_time
-                print(f"{p.pid}: {p.first_start} - {p.arrival_time}")
                 p.wait_time = p.turnaround_time - p.burst_time
                 self.completed_processes.append(p)
 
