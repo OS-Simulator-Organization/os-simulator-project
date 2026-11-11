@@ -12,7 +12,7 @@ AUTOPLAY = "memory-autoplay"
 LAST_STEP = "memory-last-step"
 HISTORY = "memory-history"
 
-PROCESS_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
+PAGE_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
 FREE_COLOR = "#d5d5d0"
 HIT_COLOR = "#1baf7a"
 FAULT_COLOR = "#e34948"
@@ -84,17 +84,6 @@ def render_memory_content(snapshot: Snapshot) -> None:
     mgr_state = mem_mgr.snapshot() if mem_mgr and hasattr(mem_mgr, "snapshot") else {}
 
 
-    mem_metrics = snapshot.metrics.get("Memory", {})
-    p_hits = int(mem_metrics.get("page_hits", type("M", (), {"value": 0})).value)
-    p_faults = int(mem_metrics.get("page_faults", type("M", (), {"value": 0})).value)
-    hit_rate = float(mem_metrics.get("page_hit_rate", type("M", (), {"value": 0.0})).value)
-    avg_access = float(mem_metrics.get("avg_access_time", type("M", (), {"value": 0.0})).value)
-
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Page Hits", p_hits)
-    c2.metric("Page Faults", p_faults)
-    c3.metric("Hit Rate", f"{hit_rate:.2f}%")
-    c4.metric("Avg Access Time", f"{avg_access} ms")
 
     st.divider()
 
@@ -116,24 +105,21 @@ def render_memory_content(snapshot: Snapshot) -> None:
     
     with col1:
         with st.container(border=True):
-            st.markdown("**Page Tables**")
-            page_tables = mgr_state.get("page_tables", {})
-            if page_tables:
-                for pid, pt in page_tables.items():
-                    st.markdown(f"##### Process `{pid}`")
-                    if pt:
-                        pt_df = pd.DataFrame(list(pt.items()), columns=["Virtual Page", "Physical Frame"])
-                        st.dataframe(pt_df, hide_index=True)
-                    else:
-                        st.caption("No page mappings.")
+            st.markdown("**Page Table**")
+            page_table = mgr_state.get("page_table", {})
+            if page_table:
+                pt_df = pd.DataFrame(list(page_table.items()), columns=["Virtual Page", "Physical Frame"])
+                st.dataframe(pt_df, hide_index=True)
             else:
-                st.caption("No page tables initialized.")
+                st.caption("Page table not initialized.")
 
     with col2:
         with st.container(border=True):
             st.markdown("**Fault Latencies & Trace Progress**")
             fault_latencies = mgr_state.get("fault_latencies", {})
-            trace_pointers = mgr_state.get("trace_pointers", {})
+
+            trace = mgr_state.get("trace", [])
+            trace_pointer = mgr_state.get("trace_pointer", None)
             
             st.markdown("##### Active Fault Penalties")
             if fault_latencies:
@@ -142,13 +128,19 @@ def render_memory_content(snapshot: Snapshot) -> None:
             else:
                 st.caption("No active page fault latencies.")
 
-            st.markdown("##### Trace Pointers")
-            if trace_pointers:
-                tp_df = pd.DataFrame(list(trace_pointers.items()), columns=["Process ID", "Current Index"])
-                st.dataframe(tp_df, hide_index=True)
-            else:
-                st.caption("No trace pointers recorded.")
+            st.markdown("##### Trace")
+            if trace:
 
+                st.markdown(trace)
+                if trace_pointer < len(trace):
+                    st.markdown(f"Current Pointer: Index {trace_pointer} -> {trace[trace_pointer]}")
+                else:
+                    st.markdown(f"Current Pointer: End of trace")
+    
+            else:
+                st.caption("No trace intialized")
+
+    
     history = _history(snapshot)
 
     # Region 3: Frame occupancy over time
@@ -193,21 +185,25 @@ def _history(snapshot: Snapshot) -> dict:
 
 
 def occupancy_chart(frames: pd.DataFrame) -> alt.LayerChart:
-    processes = sorted(p for p in frames["process"].unique() if p != "free")
-    colors = PROCESS_COLORS[:len(processes)] if len(processes) <= len(PROCESS_COLORS) else [PROCESS_COLORS[0]] * len(processes)
+    unique_contents = sorted(c for c in frames["contents"].unique() if c != "free")
+    colors = PAGE_COLORS[:len(unique_contents)] if len(unique_contents) <= len(PAGE_COLORS) else [PAGE_COLORS[0]] * len(unique_contents)
+    
     base = alt.Chart(frames).encode(
-        x=alt.X("tick:O", title="Simulation time (ms)"),
+        x=alt.X("tick:O", title="Simulation time (ms)", axis=alt.Axis(labelAngle=0)),
         y=alt.Y("frame:O", title="Physical frame"),
     )
+    
     cells = base.mark_rect(stroke="white", strokeWidth=1).encode(
-        color=alt.Color("process:N", title="Process",
-                        scale=alt.Scale(domain=[*processes, "free"], range=[*colors, FREE_COLOR])),
+        color=alt.Color("contents:N", title="Contents",
+                        scale=alt.Scale(domain=[*unique_contents, "free"], range=[*colors, FREE_COLOR])),
         tooltip=[alt.Tooltip("tick:O", title="Tick (ms)"), alt.Tooltip("frame:O", title="Frame"),
                  alt.Tooltip("contents:N", title="Contents")],
     )
-    pages = base.transform_filter(alt.datum.process != "free").mark_text(fontSize=10, color="white").encode(
+    
+    text_labels = base.transform_filter(alt.datum.contents != "free").mark_text(fontSize=10, color="white").encode(
         text=alt.Text("page:Q", format="d"))
-    return (cells + pages).properties(title="Frame occupancy over time (label = page number)")
+        
+    return (cells + text_labels).properties(title="Frame occupancy over time (label = page number)")
 
 
 def access_chart(accesses: pd.DataFrame) -> alt.Chart:

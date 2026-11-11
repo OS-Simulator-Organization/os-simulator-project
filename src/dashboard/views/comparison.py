@@ -19,7 +19,7 @@ from src.dashboard.config_sidebar import read_config
 
 RESULTS = "memory-comparison"
 MAX_TICKS = 10_000
-BASELINE_TRACES = {"P1": ["0x0040", "0x10A0", "0x0044", "0x20B0"]}
+BASELINE_TRACE = ["0x0040", "0x10A0", "0x0044", "0x20B0"]
 POLICY_COLORS = {"FIFO": "#2a78d6", "LRU": "#eb6834"}
 COMPARED_METRICS = [
     ("total_memory_references", "References"),
@@ -34,11 +34,12 @@ COMPARED_METRICS = [
 
 def compare_replacement_policies(config: RunConfig) -> List[Dict[str, Any]]:
     """Runs FIFO and LRU to completion on the same config and returns one row of memory metrics per policy."""
-    traces = config.memory.traces or BASELINE_TRACES
+    trace = config.memory.trace or BASELINE_TRACE
     rows = []
+    
     for algorithm in ReplacementAlgorithm:
         controller = RealController()
-        controller.load(replace(config, memory=replace(config.memory, algorithm=algorithm, traces=traces)))
+        controller.load(replace(config, memory=replace(config.memory, algorithm=algorithm, trace=trace)))
         metrics = controller.run(until_tick=MAX_TICKS).snapshot.metrics.get("Memory", {})
         rows.append({"policy": algorithm.value, **{label: metrics[key].value for key, label in COMPARED_METRICS}})
     return rows
@@ -69,7 +70,7 @@ def render_comparison() -> None:
     st.markdown("**Page replacement: FIFO vs LRU**")
     config = read_config()
     memory = config.memory
-    source = "custom traces from the Scenario Builder" if memory.traces else "the baseline trace (0x0040, 0x10A0, 0x0044, 0x20B0)"
+    source = "custom trace from the Scenario Builder" if memory.trace else "the baseline trace (0x0040, 0x10A0, 0x0044, 0x20B0)"
     st.caption(f"Both policies run on {source} with {memory.total_frames} frames, {memory.page_size}-byte pages "
                f"and {memory.fault_latency}-tick fault latency, taken from the sidebar.")
 

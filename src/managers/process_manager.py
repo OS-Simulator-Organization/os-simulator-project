@@ -31,14 +31,12 @@ class ProcessManager(BaseManager):
         self.current_time: float = 0.0
 
         self.gantt_ticks: List[Dict[str, Any]] = []
-        
-
 
 
     # Exposed manager API methods
 
     def configure(self, config: Dict[str, Any]) -> None:
-        """Apply manager-specific configuration (based on RealController.load())"""
+        """Apply ProcessConfig configuration"""
         if not config:
             raise ValueError("Configuration dictionary is empty")
             
@@ -82,6 +80,14 @@ class ProcessManager(BaseManager):
         for p in self.workload:
             p.state = ProcessState.NEW
             p.remaining_time = p.burst_time
+            p.completion_time = -1
+            p.turnaround_time = -1
+            p.wait_time = -1
+            p.response_time = -1
+            p.first_start = -1
+            p.dispatches = -1
+            p.preemptions -1
+            p.open_files.clear()
 
     def step(self, current_time: int) -> List[EventRecord]:
         """
@@ -176,8 +182,7 @@ class ProcessManager(BaseManager):
         """
         total_processes = len(self.workload)
         completed_count = len(self.completed_processes)
-        
-
+    
         # Calculate averages
         if completed_count > 0:
             avg_waiting_time = sum(p.wait_time for p in self.completed_processes) / completed_count
@@ -190,7 +195,12 @@ class ProcessManager(BaseManager):
         
         if completed_count > 0:
             max_completion = max(p.completion_time for p in self.completed_processes)
-            min_start = min(p.first_start for p in self.completed_processes)
+
+            started_processes = [p for p in self.workload if p.first_start != -1]
+            if started_processes:
+                min_start = min(p.first_start for p in started_processes)
+            else:
+                min_start = 0
             makespan = max_completion - min_start
         else:
             makespan = 0.0
@@ -207,12 +217,14 @@ class ProcessManager(BaseManager):
         return {
             "total_processes": int(total_processes),
             "completed_processes": int(completed_count),
+            "throughput": float(throughput),
+            "makespan": float(makespan),
+
+            "utilization": float(utilization),
             "avg_waiting_time": float(avg_waiting_time),
             "avg_turnaround_time": float(avg_turnaround_time),
             "avg_response_time": float(avg_response_time),
-            "makespan": float(makespan),
-            "utilization": float(utilization),
-            "throughput": float(throughput),
+            
             "context_switches": int((self.context_switch_time) / self.context_switch_cost if self.context_switch_cost > 0 else 0),
             "queue_length": int(len(self.ready_queue)),
         }
@@ -224,22 +236,22 @@ class ProcessManager(BaseManager):
         errors = []
         valid_algs = ["FCFS", "SJF", "SRTF", "ROUND_ROBIN", "PRIORITY"]
         
-        # 1. Validate scheduling algorithm name
+        # Validate scheduling algorithm name
         if self.algorithm not in valid_algs:
             errors.append(f"Invalid scheduling algorithm: {self.algorithm}. Must be one of {valid_algs}")
             
-        # 2. Validate Round Robin time quantum rules
+        # Validate Round Robin time quantum rules
         if self.algorithm == "ROUND_ROBIN":
             if self.quantum is None or self.quantum < 1:
                 errors.append("Round Robin scheduling requires a time quantum of at least 1 ms.")
         elif self.quantum is not None and self.quantum > 0:
             errors.append("Time quantum only applies to Round Robin.")
             
-        # 3. Validate context switch cost
+        # Validate context switch cost
         if self.context_switch_cost < 0:
             errors.append("Context switch cost cannot be negative.")
             
-        # 4. Validate workload
+        # Validate workload
         unique_pids = set()
         for p in self.workload:
             if p.pid in unique_pids:
@@ -331,29 +343,58 @@ class ProcessManager(BaseManager):
         """Retrieves the currently running process"""
         return self.running_process
 
-    def get_terminated_process(self) -> List[Process]:
-        """Retrives list of completed processes"""
-        return self.completed_processes
+    # def get_terminated_process(self) -> List[Process]:
+    #     """Retrives list of completed processes"""
+    #     return self.completed_processes
 
-    def block_process(self, pid) -> None:
+    def block_process(self, pid, manager) -> None:
         """Blocks a running process due to a page fault and frees the CPU"""
+        events: List[EventRecord] = []
         if self.running_process and self.running_process.pid == pid:
             p = self.running_process
             p.state = ProcessState.WAITING
-            self.running_process = None
+            p.blocked_at = self.current_time
             
+            self.running_process = None
+            events.append(EventRecord(
+                timestamp=self.current_time,
+                manager="Process",
+                event_type="PROCESS_PREEMPT",
+                entity_id=p.pid,
+                action="PROCESS_BLOCK",
+                previous_state="RUNNING",
+                new_state="WAITING",
+                outcome="SUCCESS",
+                explanatory_message=f"Blocked by {manager} manager"
+            ))
             if self.context_switch_cost > 0:
                 self.cs_ticks_remaining = self.context_switch_cost
-        self._update_ready_queue()
+        return events
 
-    def unblock_process(self, pid) -> None:
+    def unblock_process(self, pid, manager) -> None:
         """Unblocks running process when page fault resolves and changes state to READY"""
+        events: List[EventRecord] = []
+
         for p in self.workload:
             if p.pid == pid and p.state == ProcessState.WAITING:
                 p.state = ProcessState.READY
-                self.ready_queue.append(p)
-                break
-        self._update_ready_queue()
+                
+                # Check if process may already be in ready queue incorrectly, remove if so
+                if p not in self.ready_queue:
+                    self.ready_queue.append(p)
+
+                events.append(EventRecord(
+                    timestamp=self.current_time,
+                    manager="Process",
+                    event_type="PROCESS_REQUEUE",
+                    entity_id=p.pid,
+                    action="PROCESS_UNBLOCK",
+                    previous_state="WAITING",
+                    new_state="READY",
+                    outcome="SUCCESS",
+                    explanatory_message=f"Unblocked by {manager} manager"
+                ))
+        return events
     
     # Manager helper functions
 
@@ -367,7 +408,7 @@ class ProcessManager(BaseManager):
         events: List[EventRecord] = []
             # Check if any new processes have arrived
         for p in self.workload:
-            if p.arrival_time == self.current_time and p.state != ProcessState.WAITING:
+            if p.arrival_time == self.current_time and p.state != ProcessState.TERMINATED and p.state != ProcessState.WAITING and p.state != ProcessState.RUNNING:
                 # Add new processes to rq and set to READY
                 self.ready_queue.append(p)
                 p.state = ProcessState.READY
@@ -388,8 +429,6 @@ class ProcessManager(BaseManager):
             self.ready_queue.sort(key=lambda p: (p.remaining_time, p.arrival_time, p.pid)) # Second and third sorting criterea arrival time to break ties
         
         elif self.algorithm == "PRIORITY":
-            self.ready_queue.sort(key=lambda p: (p.priority, p.arrival_time, p.pid)) # Second and third sorting criterea arrival time to break ties
-
             # Age Waiting Processes
             if self.aging_interval > 0:
                 for p in self.ready_queue:
@@ -410,7 +449,8 @@ class ProcessManager(BaseManager):
                             new_state=f"READY",
                             outcome="SUCCESS"
                         ))
-
+            self.ready_queue.sort(key=lambda p: (p.priority, p.arrival_time, p.pid)) # Second and third sorting criterea arrival time to break ties
+        
         return events
 
         
@@ -423,14 +463,12 @@ class ProcessManager(BaseManager):
         if self.algorithm in ["SJF", "FCFS", "PRIORITY"]: # Non preemptive work selection
             
             if self.running_process == None: # If the cpu is idle select next process
-                if not self.ready_queue:
-                    # cpu idle
-                    print()
-                else:
+                if self.ready_queue:
                     # Set next process as running process, change its state, set start time
                     self.running_process = self.ready_queue.pop(0)
                     self.running_process.state = ProcessState.RUNNING
-                    self.running_process.first_start = self.current_time
+                    if self.running_process.first_start == -1:
+                        self.running_process.first_start = self.current_time
                     self.running_process.dispatches += 1
                     
 
@@ -484,14 +522,12 @@ class ProcessManager(BaseManager):
                         self.cs_ticks_remaining = self.context_switch_cost
 
             if self.running_process == None and self.cs_ticks_remaining == 0: # If the cpu is idle and not in a cs, select next process
-                if not self.ready_queue:
-                    # cpu idle
-                    print()
-                else:
+                if self.ready_queue:
                     # Set next process as running process, change its state, set start time
                     self.running_process = self.ready_queue.pop(0)
                     self.running_process.state = ProcessState.RUNNING
-                    self.running_process.first_start = self.current_time if self.running_process.first_start == -1 else self.running_process.first_start
+                    if self.running_process.first_start == -1:
+                        self.running_process.first_start = self.current_time
                     self.running_process.dispatches += 1
 
                     # Create event
@@ -509,15 +545,14 @@ class ProcessManager(BaseManager):
         elif self.algorithm == "ROUND_ROBIN": # Preemptive RR selection
 
             if self.running_process == None and self.cs_ticks_remaining == 0: # If the cpu is idle and not in a cs, select next process
-                if not self.ready_queue:
-                    # cpu idle
-                    print()
-                else:
+                if self.ready_queue:
                     # Set next process as running process, change its state, set start time
                     self.running_process = self.ready_queue.pop(0)
                     self.running_process.state = ProcessState.RUNNING
-                    self.running_process.first_start = self.current_time if self.running_process.first_start == -1 else self.running_process.first_start
-                    self.running_process.dispatches += 1
+                    
+                    if self.running_process.first_start == -1:
+                        self.running_process.first_start = self.current_time
+                
                     self.slice = self.quantum
 
                     # Create event
@@ -584,7 +619,7 @@ class ProcessManager(BaseManager):
 
                 # Create termination event
                 events.append(EventRecord(
-                    timestamp=self.current_time,
+                    timestamp=self.current_time + 1,
                     manager="Process",
                     event_type="PROCESS_TERMINATE",
                     entity_id=p.pid,
@@ -646,7 +681,6 @@ class ProcessManager(BaseManager):
                 compressed.append(current_interval)
                 current_interval = tick.copy()
         compressed.append(current_interval)
-
         for interval in compressed:
             csv_lines.append(f"{interval['start']},{interval['end']},{interval['label']}")
 

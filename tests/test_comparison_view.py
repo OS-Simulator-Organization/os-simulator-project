@@ -2,7 +2,7 @@ from pathlib import Path
 
 from streamlit.testing.v1 import AppTest
 
-from src.core.controller_api import MemoryConfig, RunConfig
+from src.core.controller_api import ProcessConfig, MemoryConfig, RunConfig
 from src.dashboard.views.comparison import compare_replacement_policies, side_by_side
 
 ENTRYPOINT = Path(__file__).parent.parent / "streamlit_app.py"
@@ -10,8 +10,18 @@ ENTRYPOINT = Path(__file__).parent.parent / "streamlit_app.py"
 # Pages 1 2 3 1 4 1 (256-byte pages) with 3 frames, worked by hand:
 #   FIFO: F F F H F(evicts 1) F(evicts 2)  -> 5 faults, 1 hit, 2 evictions
 #   LRU:  F F F H F(evicts 2) H            -> 4 faults, 2 hits, 1 eviction
-LOCALITY = RunConfig(memory=MemoryConfig(page_size=256, total_frames=3, fault_latency=0,
-                                         traces={"P1": [256, 512, 768, 256, 1024, 256]}))
+LOCALITY = RunConfig(
+    scenario_id="custom",
+    process=ProcessConfig(
+        custom_workload=[
+            {"pid": "P1", "arrival_time": 0, "burst_time": 20, "priority": 1}
+        ]
+    ),
+    memory=MemoryConfig(
+        page_size=256,
+        total_frames=3,
+        fault_latency=0,
+        trace=[256, 512, 768, 256, 1024, 256]))
 
 
 def by_policy(config: RunConfig) -> dict:
