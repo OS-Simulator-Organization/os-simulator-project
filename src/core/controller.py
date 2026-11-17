@@ -82,6 +82,7 @@ class SimulationController:
         proc_mgr = self.get_manager("Process")
         mem_mgr = self.get_manager("Memory")
         file_mgr = self.get_manager("File")
+        dev_mgr = self.get_manager("Device")
 
         # Step Process Manager
         if proc_mgr:
@@ -100,6 +101,11 @@ class SimulationController:
         # Step File Manager
         if file_mgr:
             new_events = file_mgr.step(self.clock)
+            for evt in new_events:
+                self._handle_event(evt, step_events)
+        # Step Device Manager
+        if dev_mgr:
+            new_events = dev_mgr.step(self.clock)
             for evt in new_events:
                 self._handle_event(evt, step_events)
 
@@ -128,7 +134,14 @@ class SimulationController:
                 # Only unblocked processes that are already blocked, preventing ghost unblockings
                 if evt.entity_id in file_mgr.blocked_processes:
                     new_events.extend(proc_mgr.unblock_process(evt.entity_id, evt.manager))
-
+        
+        elif evt.manager == "Device":
+            proc_mgr = self.get_manager("Process")
+            if evt.event_type == "DEVICE_BLOCKED" and proc_mgr:
+                new_events.extend(proc_mgr.block_process(evt.entity_id, evt.manager))
+            elif evt.event_type == "DEVICE_COMPLETED" and proc_mgr:
+                if evt.entity_id in proc_mgr.workload or True:  
+                    new_events.extend(proc_mgr.unblock_process(evt.entity_id, evt.manager))
         
         if evt.timestamp > self.clock:
             self.schedule_event(evt)
@@ -214,10 +227,12 @@ class RealController:
         from src.managers.process_manager import ProcessManager
         from src.managers.memory_manager import MemoryManager
         from src.managers.file_manager import FileManager
+        from src.managers.DeviceManager import DeviceManager
         
         self.engine.register_manager(ProcessManager())
         self.engine.register_manager(MemoryManager())
         self.engine.register_manager(FileManager())
+        self.engine.register_manager(DeviceManager())
 
         self.current_config: Optional[RunConfig] = None
         self.run_id: Optional[str] = None
@@ -329,6 +344,20 @@ class RealController:
                 "io_requests": [
                     {"arrival_time": 1, "op": "READ", "path": "/system.log", "pid": "P1"},
                     {"arrival_time": 3, "op": "WRITE", "path": "/system.log", "content": " - P1 access", "pid": "P1"}
+                ]
+            })
+
+        # DEVICE MANAGER BASELINE CONFIGURATION
+        dev_mgr = self.engine.get_manager("Device")
+        if dev_mgr and config.scenario_id == "baseline":
+            dev_mgr.configure({"disk_policy": "FCFS"})
+            dev_mgr.load({
+                "io_requests": [
+                    {"request_id": "REQ-1", "device_id": "DISK_1", "pid": "P1", "arrival_time": 1, "burst_time": 3, "operation_type": "READ:45"},
+                    {"request_id": "REQ-2", "device_id": "PRINTER_1", "pid": "P2", "arrival_time": 2, "burst_time": 4, "operation_type": "PRINT"},
+                    {"request_id": "REQ-3", "device_id": "KEYBOARD_1", "pid": "P3", "arrival_time": 3, "burst_time": 2, "operation_type": "INPUT"},
+                    {"request_id": "REQ-4", "device_id": "DISK_1", "pid": "P4", "arrival_time": 4, "burst_time": 1, "operation_type": "READ:120"},
+                    {"request_id": "REQ-5", "device_id": "DISK_1", "pid": "P5", "arrival_time": 5, "burst_time": 2, "operation_type": "READ:15"}
                 ]
             })
 

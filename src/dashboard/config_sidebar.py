@@ -16,7 +16,9 @@ from src.core.controller_api import(
     RunConfig,
     RunStatus,
     SchedulingPolicy,
-    ReplacementAlgorithm
+    ReplacementAlgorithm,
+    DiskPolicy,
+    DeviceConfig
 )
 
 SEED = "seed"
@@ -48,7 +50,13 @@ FAULT_LATENCY = "fault_latency"
 REPLACEMENT_ALGORITHMS = ["FIFO", "LRU"]
 PAGE_SIZE_OPTIONS = [256, 512, 1024, 2048, 4096, 8192]
 
-
+DISK_POLICY = "disk_policy"
+DISK_POLICY_LABELS = {
+    DiskPolicy.FCFS: "First come, first served",
+    DiskPolicy.SSTF: "Shortest seek time first",
+    DiskPolicy.SCAN: "SCAN (Elevator)",
+}
+DISK_POLICIES_BY_LABEL = {label: policy for policy, label in DISK_POLICY_LABELS.items()}
 
 
 def render_global_settings() -> None:
@@ -57,6 +65,9 @@ def render_global_settings() -> None:
 
     st.number_input("Seed", min_value=0, value=0, step=1, key=SEED)
     st.selectbox("Scenario", SCENARIOS, key=SCENARIO)
+
+def render_device_settings() -> None:
+    st.selectbox("Disk scheduling policy", list(DISK_POLICIES_BY_LABEL), key=DISK_POLICY)
 
 
 def render_process_settings() -> None:
@@ -84,6 +95,10 @@ def read_config() -> RunConfig:
     alg_str = state.get(MEM_ALGORITHM, ReplacementAlgorithm.FIFO.value)
     replacement_alg = ReplacementAlgorithm(alg_str)
 
+    # In read_config()
+    disk_label = state.get(DISK_POLICY, DISK_POLICY_LABELS[DiskPolicy.FCFS])
+    disk_policy = DISK_POLICIES_BY_LABEL[disk_label]
+
     return RunConfig(
         seed=state.get(SEED, 0),
         scenario_id=state.get(SCENARIO, SCENARIOS[0]),
@@ -100,7 +115,8 @@ def read_config() -> RunConfig:
             total_frames=state.get(TOTAL_FRAMES, 4),
             fault_latency=state.get(FAULT_LATENCY, 2),
             trace=state.get("custom_trace", []),
-        )
+        ),
+        devices=DeviceConfig(disk_policy=disk_policy)
     )
 
 

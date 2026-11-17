@@ -154,6 +154,7 @@ class DeviceRequest:
     operation_type: str
     status: DeviceRequestStatus = DeviceRequestStatus.PENDING
     arrival_time: float = 0.0
+    waiting_time: float = 0.0
     start_time: Optional[float] = None
     completion_time: Optional[float] = None
 
