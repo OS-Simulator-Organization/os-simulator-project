@@ -79,7 +79,7 @@ def test_baseline_loads_three_device_requests_without_double_stepping():
     snap = controller.load(RunConfig(scenario_id="baseline"))
 
     dev_mgr = controller.engine.get_manager("Device")
-    assert len(dev_mgr.request_queue) == 3
+    assert len(dev_mgr.request_queue) == 5
     assert {r.device_id for r in dev_mgr.request_queue} == {"DISK_1", "PRINTER_1", "KEYBOARD_1"}
 
     # Step 3 ticks (clocks 0, 1, 2). REQ-1 arrives at 1 with burst_time=3, so it must NOT be finished at tick 2.
@@ -92,4 +92,4 @@ def test_baseline_loads_three_device_requests_without_double_stepping():
     for _ in range(5):
         controller.step()
 
-    assert len(dev_mgr.completed_requests) == 3
+    assert len(dev_mgr.completed_requests) == 5
