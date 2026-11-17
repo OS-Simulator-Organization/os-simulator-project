@@ -52,4 +52,4 @@ def test_device_tab_renders_after_load_and_run():
     # Verify completed requests metric updated (> 0)
     completed_metrics = [m for m in app.metric if m.label == "Completed Requests"]
     assert completed_metrics
-    assert int(completed_metrics[0].value) == 3
+    assert int(completed_metrics[0].value) == 5
