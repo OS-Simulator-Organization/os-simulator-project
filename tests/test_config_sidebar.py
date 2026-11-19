@@ -8,6 +8,8 @@ from src.core.controller_api import (
     RunConfig,
     RunStatus,
     SchedulingPolicy,
+    NetworkPolicy,
+    NetworkConfig
 )
 from src.dashboard.config_sidebar import (
     CONTEXT_SWITCH,
@@ -18,6 +20,8 @@ from src.dashboard.config_sidebar import (
     QUANTUM,
     SEED,
     config_errors,
+    NETWORK_POLICY,
+    NETWORK_POLICY_LABELS
 )
 from src.core.controller import RealController
 
@@ -171,3 +175,19 @@ def test_config_errors_combine_validation_and_support():
     errors = config_errors(bad_round_robin)
     assert "Round Robin needs a time quantum of at least 1 ms." in errors
     assert config_errors(RunConfig()) == []
+
+def test_changing_network_policy_in_sidebar_updates_config():
+    app = load(run_app())
+    app.selectbox(key=NETWORK_POLICY).set_value(NETWORK_POLICY_LABELS[NetworkPolicy.PRIORITY]).run()
+    assert messages(app.sidebar.warning) == [WARNING]
+
+    load(app)
+    assert snapshot(app).config.network.queue_policy == NetworkPolicy.PRIORITY
+    assert not app.sidebar.warning
+
+
+def test_network_policy_reaches_the_config():
+    config = read_config_with({
+        NETWORK_POLICY: NETWORK_POLICY_LABELS[NetworkPolicy.PRIORITY],
+    })
+    assert config.network == NetworkConfig(queue_policy=NetworkPolicy.PRIORITY)

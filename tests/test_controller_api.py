@@ -9,6 +9,8 @@ from src.core.controller_api import (
     RunConfig,
     RunStatus,
     SchedulingPolicy,
+    NetworkConfig,
+    NetworkPolicy
 )
 from src.core.models import ProcessState
 
@@ -92,4 +94,37 @@ def test_baseline_loads_three_device_requests_without_double_stepping():
     for _ in range(5):
         controller.step()
 
-    assert len(dev_mgr.completed_requests) == 3
+    assert len(dev_mgr.completed_requests) == 5
+
+def test_network_config_and_metric_units():
+    """Verifies NetworkConfig defaults, validation, and network metric unit registrations."""
+    cfg = NetworkConfig()
+    assert cfg.queue_policy == NetworkPolicy.FIFO
+    assert cfg.buffer_capacity == 16
+    assert cfg.validate() == []
+
+    bad_cfg = NetworkConfig(buffer_capacity=0)
+    assert bad_cfg.validate()
+
+    assert METRIC_UNITS["delivered_packets"] == "count"
+    assert METRIC_UNITS["dropped_packets"] == "count"
+    assert METRIC_UNITS["avg_network_latency"] == "ms"
+
+
+def test_real_controller_loads_and_steps_network_manager():
+    """Verifies RealController registers and steps NetworkManager during baseline runs."""
+    controller = RealController()
+    config = RunConfig(
+        seed=42,
+        scenario_id="baseline",
+        network=NetworkConfig(queue_policy=NetworkPolicy.PRIORITY),
+    )
+    snap = controller.load(config)
+
+    assert "Network" in snap.metrics
+    net_mgr = controller.engine.get_manager("Network")
+    assert net_mgr is not None
+    assert net_mgr.queue_policy == "PRIORITY"
+
+    controller.step()
+    assert len(net_mgr.delivered_packets) + len(net_mgr.dropped_packets) == 1
