@@ -83,6 +83,7 @@ class SimulationController:
         mem_mgr = self.get_manager("Memory")
         file_mgr = self.get_manager("File")
         dev_mgr = self.get_manager("Device")
+        net_mgr = self.get_manager("Network")
 
         # Step Process Manager
         if proc_mgr:
@@ -106,6 +107,11 @@ class SimulationController:
         # Step Device Manager
         if dev_mgr:
             new_events = dev_mgr.step(self.clock)
+            for evt in new_events:
+                self._handle_event(evt, step_events)
+
+        if net_mgr:
+            new_events = net_mgr.step(self.clock)
             for evt in new_events:
                 self._handle_event(evt, step_events)
 
@@ -140,8 +146,7 @@ class SimulationController:
             if evt.event_type == "DEVICE_BLOCKED" and proc_mgr:
                 new_events.extend(proc_mgr.block_process(evt.entity_id, evt.manager))
             elif evt.event_type == "DEVICE_COMPLETED" and proc_mgr:
-                if evt.entity_id in proc_mgr.workload or True:  
-                    new_events.extend(proc_mgr.unblock_process(evt.entity_id, evt.manager))
+                new_events.extend(proc_mgr.unblock_process(evt.entity_id, evt.manager))
         
         if evt.timestamp > self.clock:
             self.schedule_event(evt)
@@ -228,11 +233,13 @@ class RealController:
         from src.managers.memory_manager import MemoryManager
         from src.managers.file_manager import FileManager
         from src.managers.DeviceManager import DeviceManager
-        
+        from src.managers.NetworkManager import NetworkManager
+
         self.engine.register_manager(ProcessManager())
         self.engine.register_manager(MemoryManager())
         self.engine.register_manager(FileManager())
         self.engine.register_manager(DeviceManager())
+        self.engine.register_manager(NetworkManager())
 
         self.current_config: Optional[RunConfig] = None
         self.run_id: Optional[str] = None
@@ -360,6 +367,19 @@ class RealController:
                     {"request_id": "REQ-5", "device_id": "DISK_1", "pid": "P5", "arrival_time": 5, "burst_time": 2, "operation_type": "READ:15"}
                 ]
             })
+
+        net_mgr = self.engine.get_manager("Network")
+        if net_mgr:
+            net_mgr.configure({
+                "queue_policy": config.network.queue_policy.value, 
+                "buffer_capacity": config.network.buffer_capacity,
+            })
+            if config.scenario_id == "baseline":
+                net_mgr.load([
+                    {"packet_id": "PKT-1", "source_node": "NodeA", "dest_node": "NodeC", "pid": "P1", "payload_size": 128, "ttl": 5, "priority": 1, "creation_time": 0},
+                    {"packet_id": "PKT-2", "source_node": "NodeA", "dest_node": "NodeD", "pid": "P2", "payload_size": 64, "ttl": 4, "priority": 0, "creation_time": 0},
+                    {"packet_id": "PKT-3", "source_node": "NodeB", "dest_node": "NodeC", "pid": "P3", "payload_size": 256, "ttl": 1, "priority": 2, "creation_time": 0},
+                ])
 
         self.status = RunStatus.READY
         return self.snapshot()
