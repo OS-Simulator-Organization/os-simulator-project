@@ -27,9 +27,6 @@ SUITES = {
     "Parallel": ["test_parallel*.py"],
     "Integration scenarios": ["test_file_memory_integration.py", "test_pipeline.py", "test_controller_api.py",
                               "test_integration*.py"],
-    "Dashboard": ["test_app.py", "test_config_sidebar.py", "test_manager_view.py", "test_manager_tab_tools.py",
-                  "test_comparison_view.py", "test_overview.py", "test_event_explorer.py", "test_testing_center.py",
-                  "test_export.py", "test_process_timeline.py", "test_security_view.py", "test_run_controls.py"],
 }
 BOUNDARY_SUITE = "Boundary & failure cases"
 BOUNDARY_WORDS = ["invalid", "error", "fail", "negative", "duplicate", "missing", "empty", "bad", "denied", "boundary"]

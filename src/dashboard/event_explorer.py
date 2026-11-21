@@ -8,7 +8,6 @@ every other event has no severity.
 
 from typing import Optional, Sequence, Tuple
 
-import pandas as pd
 import streamlit as st
 
 SEVERITIES = ("LOW", "MEDIUM", "HIGH", "CRITICAL")
@@ -71,7 +70,4 @@ def render_event_explorer(events: list) -> None:
 
     matches = filter_events(events, time_range, managers, entity, event_type, outcomes, severities, correlation_id)
     st.caption(f"Showing {len(matches)} of {len(events)} events.")
-    rows = [e.to_dict() for e in matches]
-    st.dataframe(rows, hide_index=True)
-    st.download_button("Download these events (CSV)", pd.DataFrame(rows).to_csv(index=False), "filtered_events.csv",
-                       "text/csv", key="explorer-csv", disabled=not rows)
+    st.dataframe([e.to_dict() for e in matches], hide_index=True)
