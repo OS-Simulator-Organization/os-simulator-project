@@ -1,0 +1,15 @@
+# Hand-worked test trace: 12 references. Page size 4096, 3 frames.
+# Worked solution: expected_results/README.md
+# One virtual address per line, hexadecimal (0x...) or decimal. Lines starting with # are ignored.
+0x1004
+0x2010
+0x3020
+0x1FFC
+0x4000
+0x1008
+0x5ABC
+0x2FFF
+4096
+8192
+0x3FFF
+0x4FFF

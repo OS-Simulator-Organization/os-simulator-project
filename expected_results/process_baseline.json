@@ -1,0 +1,37 @@
+{
+  "method": "hand-worked",
+  "workload": [
+    {"pid": "P1", "arrival_time": 0, "burst_time": 8, "priority": 3},
+    {"pid": "P2", "arrival_time": 1, "burst_time": 4, "priority": 1},
+    {"pid": "P3", "arrival_time": 2, "burst_time": 9, "priority": 4},
+    {"pid": "P4", "arrival_time": 3, "burst_time": 5, "priority": 2}
+  ],
+  "policy": "ROUND_ROBIN",
+  "quantum_ms": 4,
+  "context_switch_ms": 0,
+  "gantt": [
+    {"pid": "P1", "start": 0, "end": 4},
+    {"pid": "P2", "start": 4, "end": 8},
+    {"pid": "P3", "start": 8, "end": 12},
+    {"pid": "P4", "start": 12, "end": 16},
+    {"pid": "P1", "start": 16, "end": 20},
+    {"pid": "P3", "start": 20, "end": 24},
+    {"pid": "P4", "start": 24, "end": 25},
+    {"pid": "P3", "start": 25, "end": 26}
+  ],
+  "per_process": {
+    "P1": {"completion": 20, "turnaround": 20, "waiting": 12, "response": 0},
+    "P2": {"completion": 8, "turnaround": 7, "waiting": 3, "response": 3},
+    "P3": {"completion": 26, "turnaround": 24, "waiting": 15, "response": 6},
+    "P4": {"completion": 25, "turnaround": 22, "waiting": 17, "response": 9}
+  },
+  "system": {
+    "makespan": 26,
+    "dispatches": 8,
+    "preemptions": 4,
+    "completed_processes": 4,
+    "avg_turnaround": 18.25,
+    "avg_waiting": 11.75,
+    "avg_response": 4.5
+  }
+}
