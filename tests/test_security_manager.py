@@ -1,5 +1,32 @@
 from src.managers.SecurityManager import SecurityManager
+from src.core.controller import RealController
+from src.core.controller_api import RunConfig
 
+
+def test_controller_registers_and_authorizes_actions():
+    ctrl = RealController()
+    sec_mgr = ctrl.engine.get_manager("Security")
+    assert sec_mgr is not None
+
+    _, guest_ctx = sec_mgr.login("u_guest", "demo_guest_pass", timestamp=0.0)
+    _, admin_ctx = sec_mgr.login("u_admin", "demo_admin_pass", timestamp=0.0)
+
+    # Guest allowed read, denied device/network actions before state changes
+    assert ctrl.engine.authorize_action(guest_ctx.context_id, "r", "/system.log") is True
+    assert ctrl.engine.authorize_action(guest_ctx.context_id, "device", "DISK_1") is False
+    assert ctrl.engine.authorize_action(guest_ctx.context_id, "network", "ETH_0") is False
+
+    # Admin allowed device and network actions
+    assert ctrl.engine.authorize_action(admin_ctx.context_id, "device", "DISK_1") is True
+    assert ctrl.engine.authorize_action(admin_ctx.context_id, "network", "ETH_0") is True
+
+
+def test_controller_snapshot_includes_security_metrics():
+    ctrl = RealController()
+    snap = ctrl.load(RunConfig(scenario_id="baseline"))
+    assert "Security" in snap.metrics
+    assert snap.metrics["Security"]["total_users"].value == 2.0
+    assert snap.metrics["Security"]["alerts_total"].value == 0.0
 
 def test_login_and_logout():
     sm = SecurityManager()
@@ -81,4 +108,4 @@ def test_rwx_permissions_and_metrics():
     assert m["allowed_accesses"] == 1
     assert m["denied_accesses"] == 1
     assert m["alerts_total"] == 1
-    assert m["alerts_by_severity"]["MEDIUM"] == 1
+    assert m["alerts_medium"] == 1

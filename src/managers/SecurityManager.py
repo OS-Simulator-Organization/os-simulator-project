@@ -393,7 +393,9 @@ class SecurityManager(BaseManager):
             "denied_accesses": self.denied_count,
             "policy_changes": self.policy_changes,
             "alerts_total": len(self.alerts),
-            "alerts_by_severity": severity_counts,
+            "alerts_low": severity_counts["LOW"],
+            "alerts_medium": severity_counts["MEDIUM"],
+            "alerts_high": severity_counts["HIGH"],
             "audit_entries": len(self.audit_log)
         }
 
