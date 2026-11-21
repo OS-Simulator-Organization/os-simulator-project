@@ -44,3 +44,16 @@ def test_memory_case(case, policy):
     expected = case["policies"][policy]["summary"]
     metrics = run_trace(addresses, policy, case["page_size"], case["frames"], case["fault_latency"])
     assert summary(metrics, expected) == pytest.approx(expected, abs=1e-3)
+
+
+SWEEP = json.loads((ROOT / "expected_results" / "memory_sweep.json").read_text())
+SWEEP_IDS = [f"{row['trace']}-{row['policy']}-{row['frames']}" for row in SWEEP["rows"]]
+
+
+@pytest.mark.parametrize("row", SWEEP["rows"], ids=SWEEP_IDS)
+def test_memory_sweep(row):
+    metrics = run_trace(read_trace(f"data/{row['trace']}"), row["policy"], SWEEP["page_size"], row["frames"],
+                        SWEEP["fault_latency"])
+    keys = ["references", "hits", "faults", "evictions", "fault_rate_percent", "hit_rate_percent",
+            "avg_access_time_ms"]
+    assert summary(metrics, keys) == pytest.approx({key: row[key] for key in keys}, abs=1e-3)
