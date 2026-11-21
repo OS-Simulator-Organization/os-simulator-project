@@ -30,7 +30,8 @@ def test_registered_managers_are_active_after_load():
     controller.load(RunConfig())
     cards = cards_by_name(controller)
     assert cards["Memory"]["status"] == ACTIVE
-    assert cards["Security"]["status"] == NOT_CONNECTED
+    assert cards["Security"]["status"] == ACTIVE
+    assert cards["Parallel"]["status"] == NOT_CONNECTED
 
 
 def test_cards_count_events_and_problems():
