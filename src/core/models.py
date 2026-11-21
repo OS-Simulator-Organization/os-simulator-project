@@ -82,6 +82,7 @@ class Process:
     response_time: int = -1
     wait_time: int = -1
 
+
     state: ProcessState = ProcessState.NEW
 
     open_files: List[str] = field(default_factory=list)
@@ -93,7 +94,6 @@ class PageFrame:
     """Represents a physical memory frame and its virtual page mapping"""
     frame_id: int
     page_number: Optional[int] = None
-    pid: Optional[str] = None
     is_modified: bool = False
     last_accessed: int = 0
     load_tick: int = 0
@@ -154,6 +154,7 @@ class DeviceRequest:
     operation_type: str
     status: DeviceRequestStatus = DeviceRequestStatus.PENDING
     arrival_time: float = 0.0
+    waiting_time: float = 0.0
     start_time: Optional[float] = None
     completion_time: Optional[float] = None
 

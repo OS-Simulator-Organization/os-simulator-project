@@ -49,7 +49,7 @@ class MemoryConfig:
     page_size: int = 4096
     total_frames: int = 4
     fault_latency: int = 2
-    traces: Dict[str, List[Any]] = field(default_factory=dict)
+    trace: List[Any] = field(default_factory=list)
     def validate(self) -> List[str]:
         errors = []
         if self.page_size <= 0 or (self.page_size & (self.page_size - 1)) != 0:
@@ -68,7 +68,41 @@ class FileConfig:
 
     def validate(self) -> List[str]:
         return []
+    
+class DiskPolicy(Enum):
+    FCFS = "FCFS"
+    SSTF = "SSTF"
+    SCAN = "SCAN"
 
+@dataclass(frozen=True)
+class DeviceConfig:
+    disk_policy: DiskPolicy = DiskPolicy.FCFS
+    initial_devices: List[Dict[str, Any]] = field(default_factory=list)
+    io_requests: List[Dict[str, Any]] = field(default_factory=list)
+
+    def validate(self) -> List[str]:
+        errors = []
+        if self.disk_policy not in DiskPolicy:
+            errors.append(f"Invalid disk policy: {self.disk_policy}")
+        return errors
+
+class NetworkPolicy(Enum):
+    FIFO = "FIFO"
+    PRIORITY = "PRIORITY"
+
+
+@dataclass(frozen=True)
+class NetworkConfig:
+    queue_policy: NetworkPolicy = NetworkPolicy.FIFO
+    buffer_capacity: int = 16
+
+    def validate(self) -> List[str]:
+        errors = []
+        if self.queue_policy not in NetworkPolicy:
+            errors.append(f"Invalid network queue policy: {self.queue_policy}")
+        if self.buffer_capacity <= 0:
+            errors.append("Network buffer capacity must be greater than 0.")
+        return errors
 
 
 @dataclass(frozen=True)
@@ -79,12 +113,16 @@ class RunConfig:
     process: ProcessConfig = field(default_factory=ProcessConfig)
     memory: MemoryConfig = field(default_factory=MemoryConfig)
     files: FileConfig = field(default_factory=FileConfig) 
+    devices: DeviceConfig = field(default_factory=DeviceConfig)
+    network: NetworkConfig = field(default_factory=NetworkConfig)
     # Validate each manager config based on its own validate method
     def validate(self) -> List[str]:
         errors = []
         errors.extend(self.process.validate())
         errors.extend(self.memory.validate())
         errors.extend(self.files.validate())
+        errors.extend(self.devices.validate())
+        errors.extend(self.network.validate())
         return errors
 
    
@@ -126,6 +164,22 @@ METRIC_UNITS = {
     "allocated_frames": "count",
     "free_frames": "count",
     "frame_utilization": "%",
+
+    # device metrics
+    "device_throughput": "req/s",
+    "device_utilization": "%",
+    "avg_device_wait": "ms",
+    "avg_queue_length": "count",
+    "total_seek_distance": "cylinders",
+    "device_failures": "count",
+
+    # network metrics
+    "delivered_packets": "count",
+    "dropped_packets": "count",
+    "queued_packets": "count",
+    "drop_rate": "%",
+    "delivery_rate": "%",
+    "avg_network_latency": "ms",
 }
 
 
@@ -146,6 +200,9 @@ class StepResult:
 
 class ControllerStateError(RuntimeError):
     pass
+
+
+
 
 
 class ControllerAPI(Protocol):

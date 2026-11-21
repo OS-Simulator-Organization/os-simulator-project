@@ -15,14 +15,20 @@ from src.core.controller_api import(
     MemoryConfig,
     RunConfig,
     RunStatus,
+    Snapshot,
     SchedulingPolicy,
-    ReplacementAlgorithm
+    ReplacementAlgorithm,
+    DiskPolicy,
+    DeviceConfig,
+    FileConfig,
+    NetworkPolicy,
+    NetworkConfig
 )
 
 SEED = "seed"
 SCENARIO = "scenario"
 
-SCENARIOS = ["baseline", "none"]
+SCENARIOS = ["baseline", "custom"]
 
 # Process Config Keys
 POLICY = "process_policy"
@@ -48,12 +54,42 @@ FAULT_LATENCY = "fault_latency"
 REPLACEMENT_ALGORITHMS = ["FIFO", "LRU"]
 PAGE_SIZE_OPTIONS = [256, 512, 1024, 2048, 4096, 8192]
 
+DISK_POLICY = "disk_policy"
+DISK_POLICY_LABELS = {
+    DiskPolicy.FCFS: "First come, first served",
+    DiskPolicy.SSTF: "Shortest seek time first",
+    DiskPolicy.SCAN: "SCAN (Elevator)",
+}
+DISK_POLICIES_BY_LABEL = {label: policy for policy, label in DISK_POLICY_LABELS.items()}
+
+NETWORK_POLICY = "network_policy"
+NETWORK_POLICY_LABELS = {
+    NetworkPolicy.FIFO: "FIFO (First in, first out)",
+    NetworkPolicy.PRIORITY: "Priority queuing",
+}
+NETWORK_POLICIES_BY_LABEL = {label: policy for policy, label in NETWORK_POLICY_LABELS.items()}
 
 
+def render_network_settings() -> None:
+    st.selectbox("Network queue policy", list(NETWORK_POLICIES_BY_LABEL), key=NETWORK_POLICY)
+
+def render_network_sidebar() -> None:
+    render_network_settings()
+
+
+def describe_network_config(config: RunConfig) -> str:
+    policy = config.network.queue_policy.value
+    return f"Queue policy: {policy} · Buffer capacity: {config.network.buffer_capacity}"
 
 def render_global_settings() -> None:
+    if "pending_scenario" in st.session_state:
+        st.session_state[SCENARIO] = st.session_state.pop("pending_scenario")
+
     st.number_input("Seed", min_value=0, value=0, step=1, key=SEED)
     st.selectbox("Scenario", SCENARIOS, key=SCENARIO)
+
+def render_device_settings() -> None:
+    st.selectbox("Disk scheduling policy", list(DISK_POLICIES_BY_LABEL), key=DISK_POLICY)
 
 
 def render_process_settings() -> None:
@@ -77,10 +113,16 @@ def read_config() -> RunConfig:
 
     policy = POLICIES_BY_LABEL[state.get(POLICY, POLICY_LABELS[SchedulingPolicy.FCFS])]
     round_robin = policy is SchedulingPolicy.ROUND_ROBIN
-    srtf = policy is SchedulingPolicy.SRTF
 
     alg_str = state.get(MEM_ALGORITHM, ReplacementAlgorithm.FIFO.value)
     replacement_alg = ReplacementAlgorithm(alg_str)
+
+    # In read_config()
+    disk_label = state.get(DISK_POLICY, DISK_POLICY_LABELS[DiskPolicy.FCFS])
+    disk_policy = DISK_POLICIES_BY_LABEL[disk_label]
+
+    net_label = state.get(NETWORK_POLICY, NETWORK_POLICY_LABELS[NetworkPolicy.FIFO])
+    network_policy = NETWORK_POLICIES_BY_LABEL[net_label]
 
     return RunConfig(
         seed=state.get(SEED, 0),
@@ -88,7 +130,7 @@ def read_config() -> RunConfig:
         process=ProcessConfig(
             policy=policy,
             quantum_ms=state.get(QUANTUM, 4) if round_robin else None,
-            context_switch_ms=state.get(CONTEXT_SWITCH, 0) if round_robin or srtf else 0 ,
+            context_switch_ms=state.get(CONTEXT_SWITCH, 0),
             aging_interval=state.get(AGING_INTERVAL, 0),
             custom_workload=state.get("custom_workload", []),
         ),
@@ -97,21 +139,23 @@ def read_config() -> RunConfig:
             page_size=state.get(PAGE_SIZE, 4096),
             total_frames=state.get(TOTAL_FRAMES, 4),
             fault_latency=state.get(FAULT_LATENCY, 2),
-            traces=state.get("custom_traces", {}),
-        )
+            trace=state.get("custom_trace", []),
+        ),
+        files=FileConfig(io_requests=state.get("custom_file_requests", [])),
+        devices=DeviceConfig(disk_policy=disk_policy),
+        network=NetworkConfig(queue_policy=network_policy),
     )
 
 
-def config_errors(config: RunConfig, controller: ControllerAPI) -> List[str]:
+def config_errors(config: RunConfig) -> List[str]:
     errors = config.validate()
-    if config.process.policy not in controller.supported_policies:
-        errors.append(f"{POLICY_LABELS[config.process.policy]} is not supported yet.")
     return errors
+
 
 
 def render_load_panel(controller: ControllerAPI) -> None:
     config = read_config()
-    errors = config_errors(config, controller)
+    errors = config_errors(config)
     for error in errors:
         st.error(error)
 

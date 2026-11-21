@@ -8,8 +8,7 @@ from src.core.events import EventRecord
 from src.core.models import Process
 from src.core.importers import load_and_validate_processes
 
-from src.managers.process_manager import ProcessManager
-from src.managers.memory_manager import MemoryManager
+
 
 from src.core.controller_api import (
     #Eventually, we can import all the necessary classes from controller_api.py here. For now, we will import the ones we need.
@@ -64,6 +63,12 @@ class SimulationController:
             if manager_name in self.managers:
                 self.managers[manager_name].configure(config)
 
+    def authorize_action(self, context_id: str, required_perm: str, resource_id: str) -> bool:
+        """Checks SecurityManager before allowing file, device, or network state changes."""
+        sec_mgr = self.get_manager("Security")
+        if not sec_mgr:
+            return True
+        return sec_mgr.authorize(context_id, required_perm, resource_id, float(self.clock))
 
 
     def step(self) -> List[EventRecord]:
@@ -73,7 +78,7 @@ class SimulationController:
         """
         step_events: List[EventRecord] = []
 
-        # Process scheduled events
+        # Process scheduled events whose timestamp matches current clock
         while self.event_queue and self.event_queue[0].timestamp <= self.clock:
             evt = heapq.heappop(self.event_queue)
             self.global_event_log.append(evt)
@@ -83,6 +88,10 @@ class SimulationController:
         proc_mgr = self.get_manager("Process")
         mem_mgr = self.get_manager("Memory")
         file_mgr = self.get_manager("File")
+        dev_mgr = self.get_manager("Device")
+        sec_mgr = self.get_manager("Security")
+        net_mgr = self.get_manager("Network")
+        
 
         # Step Process Manager
         if proc_mgr:
@@ -91,11 +100,10 @@ class SimulationController:
                 self._handle_event(evt, step_events)
         
         running_proc = proc_mgr.get_running_process() if proc_mgr else None
-        terminated_procs = proc_mgr.get_terminated_process() if proc_mgr else []
 
         # Step Memory Manager
         if mem_mgr:
-            new_events = mem_mgr.step(self.clock, running_proc, terminated_procs)
+            new_events = mem_mgr.step(self.clock, running_proc)
             for evt in new_events:
                 self._handle_event(evt, step_events)
 
@@ -104,32 +112,69 @@ class SimulationController:
             new_events = file_mgr.step(self.clock)
             for evt in new_events:
                 self._handle_event(evt, step_events)
+        # Step Device Manager
+        if dev_mgr:
+            new_events = dev_mgr.step(self.clock)
+            for evt in new_events:
+                self._handle_event(evt, step_events)
+        # Step Network manager
+        if net_mgr:
+            new_events = net_mgr.step(self.clock)
+            for evt in new_events:
+                self._handle_event(evt, step_events)
+        # Step Security Manager
+        if sec_mgr:
+            new_events = sec_mgr.step(self.clock)
+            for evt in new_events:
+                self._handle_event(evt, step_events)
 
         self.clock += 1
         return step_events
 
     def _handle_event(self, evt: EventRecord, step_events: List[EventRecord]) -> None:
         """Helper to route cross-manager events and record logs."""
+
+        new_events: List[EventRecord] = []
         
         if evt.manager == "Memory":
             proc_mgr = self.get_manager("Process")
             if evt.event_type == "PAGE_FAULT" and proc_mgr:
-                proc_mgr.block_process(evt.entity_id)
+                new_events.extend(proc_mgr.block_process(evt.entity_id, evt.manager))
             elif evt.event_type == "PAGE_FAULT_RESOLVED" and proc_mgr:
-                proc_mgr.unblock_process(evt.entity_id)
+                new_events.extend(proc_mgr.unblock_process(evt.entity_id, evt.manager))
+        
         elif evt.manager == "File":
             proc_mgr = self.get_manager("Process")
-            if evt.event_type == "FILE_IO_BLOCKED" and proc_mgr:
-                proc_mgr.block_process(evt.entity_id)
+            file_mgr = self.get_manager("File")
+
+            if evt.event_type == "FILE_OP_ERROR" and proc_mgr:
+                new_events.extend(proc_mgr.block_process(evt.entity_id, evt.manager))
             elif evt.event_type in ("FILE_READ_SUCCESS", "FILE_WRITE_SUCCESS", "FILE_CREATE_SUCCESS", "FILE_DELETE_SUCCESS") and proc_mgr:
-                proc_mgr.unblock_process(evt.entity_id)
-
-
+                # Only unblocked processes that are already blocked, preventing ghost unblockings
+                if evt.entity_id in file_mgr.blocked_processes:
+                    new_events.extend(proc_mgr.unblock_process(evt.entity_id, evt.manager))
+        
+        elif evt.manager == "Device":
+            proc_mgr = self.get_manager("Process")
+            if evt.event_type == "DEVICE_BLOCKED" and proc_mgr:
+                new_events.extend(proc_mgr.block_process(evt.entity_id, evt.manager))
+            elif evt.event_type == "DEVICE_COMPLETED" and proc_mgr:
+                new_events.extend(proc_mgr.unblock_process(evt.entity_id, evt.manager))
+        
         if evt.timestamp > self.clock:
-            self.schedule_event(evt)  
+            self.schedule_event(evt)
         else:
             self.global_event_log.append(evt)
             step_events.append(evt)
+
+        # Handle, schedule, and log all triggered cross-manager events
+        for new in new_events:
+            if new.timestamp > self.clock:
+                self.schedule_event(new)
+            else:
+                self.global_event_log.append(new)
+                step_events.append(new)
+
 
     def run(self, max_ticks: int = 100) -> List[EventRecord]:
         """Runs the simulation continuously until max ticks or empty queue."""
@@ -146,9 +191,9 @@ class SimulationController:
 
         self.is_running = False
         return all_run_events
+    
     def pause(self) -> None:
         self.is_running =False
-    
 
     def reset(self) -> None:
         """Resets the simulation engine clock, event queue, logs, and manager states."""
@@ -160,7 +205,6 @@ class SimulationController:
         
         for manager in self.managers.values():
             manager.reset()
-    
 
     def get_system_snapshot(self) -> Dict[str, Any]:
         """Compiles a complete snapshot of all managers for dashboard updates."""
@@ -195,12 +239,22 @@ class RealController:
     def __init__(self, engine: Optional[SimulationController] = None):
         self.engine = engine if engine else SimulationController()
 
-        self.engine.register_manager(ProcessManager())
-        self.engine.register_manager(MemoryManager())
+        
 
         # imported here instead of top of file to avoid circular import issues with src.core
+        from src.managers.process_manager import ProcessManager
+        from src.managers.memory_manager import MemoryManager
         from src.managers.file_manager import FileManager
+        from src.managers.DeviceManager import DeviceManager
+        from src.managers.SecurityManager import SecurityManager
+        from src.managers.NetworkManager import NetworkManager
+
+        self.engine.register_manager(ProcessManager())
+        self.engine.register_manager(MemoryManager())
         self.engine.register_manager(FileManager())
+        self.engine.register_manager(DeviceManager())
+        self.engine.register_manager(SecurityManager())
+        self.engine.register_manager(NetworkManager())
 
         self.current_config: Optional[RunConfig] = None
         self.run_id: Optional[str] = None
@@ -221,14 +275,16 @@ class RealController:
         self.engine.set_seed(config.seed)
 
         # Configure managers with new run settings
+
+        # Load process manager workload based on scenario
         proc_mgr = self.engine.get_manager("Process")
-        if proc_mgr and config.process.custom_workload:
-            proc_mgr.configure({
+        proc_mgr.configure({
                 "policy": config.process.policy.value,
                 "quantum_ms": config.process.quantum_ms,
                 "context_switch_ms": config.process.context_switch_ms,
                 "aging_interval": config.process.aging_interval,
             })
+        if proc_mgr and config.scenario_id == "custom":
             if config.process.custom_workload:
                 processes = []
                 for p_dict in config.process.custom_workload:
@@ -241,13 +297,8 @@ class RealController:
                         remaining_time=int(p_dict["burst_time"])
                     ))
                 proc_mgr.load(processes)
+
         elif proc_mgr and config.scenario_id == "baseline":
-            proc_mgr.configure({
-                "policy": "ROUND_ROBIN",
-                "quantum_ms": 4,
-                "context_switch_ms": 0,
-                "aging_interval": 0,
-            })
             baseline_workload = [
                 {"pid": "P1", "arrival_time": 0, "burst_time": 8, "priority": 3, "owner_id": "user1"},
                 {"pid": "P2", "arrival_time": 1, "burst_time": 4, "priority": 1, "owner_id": "user1"},
@@ -266,6 +317,7 @@ class RealController:
             ]
             proc_mgr.load(processes)
         else:
+            # ProcessConfig has no attribute "workload file"
             workload_file = getattr(config.process, "workload_file", "data/processes.csv")
             try:
                 processes = load_and_validate_processes(workload_file)
@@ -274,30 +326,27 @@ class RealController:
             except Exception:
                 pass
             
-
-        # MEMORY MANAGER TEST CONFIGURATION WITH DEFAULT VALUES            
+        # Load memory manager workload based on scenario id
         mem_mgr = self.engine.get_manager("Memory")
-        if mem_mgr and config.memory.traces:
+        if mem_mgr and config.scenario_id == "custom":
             mem_mgr.configure({
                 "algorithm": config.memory.algorithm.value,
                 "page_size": config.memory.page_size,
                 "total_frames": config.memory.total_frames,
                 "fault_latency": config.memory.fault_latency,
             })
-            custom_traces = config.memory.traces if config.memory.traces else {}
-            mem_mgr.load({
-                "traces": custom_traces
-            })
+            if config.memory.trace:
+                mem_mgr.load(config.memory.trace)
+
+
         elif mem_mgr and config.scenario_id == "baseline":
             mem_mgr.configure({
-                "algorithm": "FIFO",
-                "page_size": 4096,
-                "total_frames": 4,
-                "fault_latency": 0,
+                "algorithm": config.memory.algorithm.value,
+                "page_size": config.memory.page_size,
+                "total_frames": config.memory.total_frames,
+                "fault_latency": config.memory.fault_latency,
             })
-            mem_mgr.load({
-                "traces": {"P1": [0x0040, 0x10A0, 0x0044, 0x20B0]}
-            })
+            mem_mgr.load([0x0040, 0x10A0, 0x0044, 0x20B0])
 
 
         # FILE MANAGER TEST CONFIGURATION WITH DEFAULT VALUES
@@ -319,6 +368,38 @@ class RealController:
                     {"arrival_time": 3, "op": "WRITE", "path": "/system.log", "content": " - P1 access", "pid": "P1"}
                 ]
             })
+
+        # DEVICE MANAGER BASELINE CONFIGURATION
+        dev_mgr = self.engine.get_manager("Device")
+        if dev_mgr and config.scenario_id == "baseline":
+            dev_mgr.configure({"disk_policy": "FCFS"})
+            dev_mgr.load({
+                "io_requests": [
+                    {"request_id": "REQ-1", "device_id": "DISK_1", "pid": "P1", "arrival_time": 1, "burst_time": 3, "operation_type": "READ:45"},
+                    {"request_id": "REQ-2", "device_id": "PRINTER_1", "pid": "P2", "arrival_time": 2, "burst_time": 4, "operation_type": "PRINT"},
+                    {"request_id": "REQ-3", "device_id": "KEYBOARD_1", "pid": "P3", "arrival_time": 3, "burst_time": 2, "operation_type": "INPUT"},
+                    {"request_id": "REQ-4", "device_id": "DISK_1", "pid": "P4", "arrival_time": 4, "burst_time": 1, "operation_type": "READ:120"},
+                    {"request_id": "REQ-5", "device_id": "DISK_1", "pid": "P5", "arrival_time": 5, "burst_time": 2, "operation_type": "READ:15"}
+                ]
+            })
+
+        net_mgr = self.engine.get_manager("Network")
+        if net_mgr:
+            net_mgr.configure({
+                "queue_policy": config.network.queue_policy.value, 
+                "buffer_capacity": config.network.buffer_capacity,
+            })
+            if config.scenario_id == "baseline":
+                net_mgr.load([
+                    {"packet_id": "PKT-1", "source_node": "NodeA", "dest_node": "NodeC", "pid": "P1", "payload_size": 128, "ttl": 5, "priority": 1, "creation_time": 0},
+                    {"packet_id": "PKT-2", "source_node": "NodeA", "dest_node": "NodeD", "pid": "P2", "payload_size": 64, "ttl": 4, "priority": 0, "creation_time": 0},
+                    {"packet_id": "PKT-3", "source_node": "NodeB", "dest_node": "NodeC", "pid": "P3", "payload_size": 256, "ttl": 1, "priority": 2, "creation_time": 0},
+                ])
+
+        # Security manager baseline configuration
+        sec_mgr = self.engine.get_manager("Security")
+        if sec_mgr:
+            sec_mgr.configure({"failed_login_threshold": 3})
 
         self.status = RunStatus.READY
         return self.snapshot()
