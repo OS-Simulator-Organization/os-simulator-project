@@ -56,13 +56,6 @@ class SimulationController:
     def get_manager(self, name: str) -> Optional[BaseManager]:
         """Retrieves a registered manager instance by name."""
         return self.managers.get(name)
-    
-    def authorize_action(self, context_id: str, required_perm: str, resource_id: str) -> bool:
-        """Checks SecurityManager before allowing file, device, or network state changes."""
-        sec_mgr = self.get_manager("Security")
-        if not sec_mgr:
-            return True
-        return sec_mgr.authorize(context_id, required_perm, resource_id, float(self.clock))
 
     def configure_all(self, configs: Dict[str, Dict[str, Any]]) -> None:
         """Configures all registered managers using a mapped configuration dictionary."""
@@ -70,6 +63,12 @@ class SimulationController:
             if manager_name in self.managers:
                 self.managers[manager_name].configure(config)
 
+    def authorize_action(self, context_id: str, required_perm: str, resource_id: str) -> bool:
+        """Checks SecurityManager before allowing file, device, or network state changes."""
+        sec_mgr = self.get_manager("Security")
+        if not sec_mgr:
+            return True
+        return sec_mgr.authorize(context_id, required_perm, resource_id, float(self.clock))
 
 
     def step(self) -> List[EventRecord]:
@@ -92,6 +91,7 @@ class SimulationController:
         dev_mgr = self.get_manager("Device")
         sec_mgr = self.get_manager("Security")
         net_mgr = self.get_manager("Network")
+        
 
         # Step Process Manager
         if proc_mgr:
@@ -115,6 +115,11 @@ class SimulationController:
         # Step Device Manager
         if dev_mgr:
             new_events = dev_mgr.step(self.clock)
+            for evt in new_events:
+                self._handle_event(evt, step_events)
+        # Step Network manager
+        if net_mgr:
+            new_events = net_mgr.step(self.clock)
             for evt in new_events:
                 self._handle_event(evt, step_events)
         # Step Security Manager
@@ -243,7 +248,7 @@ class RealController:
         from src.managers.DeviceManager import DeviceManager
         from src.managers.SecurityManager import SecurityManager
         from src.managers.NetworkManager import NetworkManager
-        
+
         self.engine.register_manager(ProcessManager())
         self.engine.register_manager(MemoryManager())
         self.engine.register_manager(FileManager())
@@ -377,11 +382,25 @@ class RealController:
                     {"request_id": "REQ-5", "device_id": "DISK_1", "pid": "P5", "arrival_time": 5, "burst_time": 2, "operation_type": "READ:15"}
                 ]
             })
-        # SECURITY MANAGER BASELINE CONFIGURATION
-            sec_mgr = self.engine.get_manager("Security")
-            if sec_mgr:
-                sec_mgr.configure({"failed_login_threshold": 3})
-                
+
+        net_mgr = self.engine.get_manager("Network")
+        if net_mgr:
+            net_mgr.configure({
+                "queue_policy": config.network.queue_policy.value, 
+                "buffer_capacity": config.network.buffer_capacity,
+            })
+            if config.scenario_id == "baseline":
+                net_mgr.load([
+                    {"packet_id": "PKT-1", "source_node": "NodeA", "dest_node": "NodeC", "pid": "P1", "payload_size": 128, "ttl": 5, "priority": 1, "creation_time": 0},
+                    {"packet_id": "PKT-2", "source_node": "NodeA", "dest_node": "NodeD", "pid": "P2", "payload_size": 64, "ttl": 4, "priority": 0, "creation_time": 0},
+                    {"packet_id": "PKT-3", "source_node": "NodeB", "dest_node": "NodeC", "pid": "P3", "payload_size": 256, "ttl": 1, "priority": 2, "creation_time": 0},
+                ])
+
+        # Security manager baseline configuration
+        sec_mgr = self.engine.get_manager("Security")
+        if sec_mgr:
+            sec_mgr.configure({"failed_login_threshold": 3})
+
         self.status = RunStatus.READY
         return self.snapshot()
 
