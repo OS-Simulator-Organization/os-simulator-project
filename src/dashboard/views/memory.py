@@ -176,5 +176,5 @@ VIEW = ManagerView(
     describe_config=describe_config,
     render_sidebar=render_memory_settings,
     render_content=render_memory_content,
-    test_files=("tests/test_file_memory_integration.py",),
+    test_files=("tests/test_memory_history.py", "tests/test_file_memory_integration.py"),
 )

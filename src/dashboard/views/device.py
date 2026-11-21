@@ -156,4 +156,5 @@ VIEW = ManagerView(
     describe_config=describe_device_config,
     render_sidebar=render_device_sidebar,
     render_content=render,
+    test_files=("tests/test_device_manager.py",),
 )

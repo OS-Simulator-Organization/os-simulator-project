@@ -116,8 +116,8 @@ VIEW = ManagerView(
     name="Process",
     manager="Process",
     regions=("CPU Gantt chart", "Process state timeline", "Process table"),
-    actions=("Run process tests",),
     describe_config=describe_config,
     render_sidebar=render_process_settings,
     render_content=render_process_content,
+    test_files=("tests/test_process_metrics.py", "tests/test_validation.py"),
 )

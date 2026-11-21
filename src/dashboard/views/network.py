@@ -110,4 +110,5 @@ VIEW = ManagerView(
     render_sidebar=render_network_sidebar,
     describe_config=describe_network_config,
     render_content=render_network_content,
+    test_files=("tests/test_network_manager.py",),
 )
