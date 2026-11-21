@@ -5,7 +5,10 @@ import streamlit as st
 from typing import Any, Dict, List, Tuple
 from src.dashboard.manager_view import ManagerView
 from src.core.controller_api import RunConfig, Snapshot
+from src.core.models import User
 from src.dashboard.config_sidebar import SCENARIO
+from src.dashboard.scenario_inputs import KINDS as INPUT_KINDS, clean_rows, split_permissions, validate_rows
+from src.dashboard.views.security import get_security_manager
 
 DEFAULT_WORKLOAD = [
     {"pid": "P1", "arrival_time": 0, "burst_time": 8, "priority": 3, "owner_id": "user1"},
@@ -143,23 +146,64 @@ def render_scenario_builder(snapshot: Snapshot) -> None:
         except Exception as e:
             st.error(f"Import failed: {e}")
 
+    # Other scenario inputs: file script, users, device requests, links, packets, failure events
+    st.markdown("### 3. Other Scenario Inputs")
+    other_inputs = {kind.key: render_input_table(kind) for kind in INPUT_KINDS}
+
     # Button that validates and loads scenario
     if st.button("Validate & Apply Scenario", type="primary"):
         workload_errors = validate_workload(edited_workload_df)
         trace_errors, parsed_trace = validate_trace(edited_trace_df)
-        
-        all_errors = workload_errors + trace_errors
+        input_errors = [error for kind in INPUT_KINDS for error in validate_rows(kind, other_inputs[kind.key])]
+
+        all_errors = workload_errors + trace_errors + input_errors
         if all_errors:
             for err in all_errors:
                 st.error(err)
         else:
             state["custom_workload"] = to_workload(edited_workload_df)
             state["custom_trace"] = parsed_trace  # Stored as a list
+            apply_other_inputs(other_inputs)
             state["pending_scenario"] = "custom"
             st.success("Scenario validated! Press Load and reset in the sidebar to run it.")
 
+    scenario = {"processes": to_workload(edited_workload_df), "trace": validate_trace(edited_trace_df)[1], **other_inputs}
+    st.download_button("Download scenario (JSON)", json.dumps(scenario, indent=2, default=str), "scenario.json",
+                       "application/json", key="scenario-download")
+
+
+def render_input_table(kind) -> List[Dict[str, Any]]:
+    """An editable table for one input type, filled with its example rows the first time."""
+    state = st.session_state
+    table_key = f"scenario-{kind.key}"
+    if table_key not in state:
+        state[table_key] = pd.DataFrame(list(kind.defaults), columns=[f.name for f in kind.fields])
+    with st.expander(f"{kind.title} ({len(state[table_key])} example rows)"):
+        st.caption(kind.note)
+        edited = st.data_editor(state[table_key], num_rows="dynamic", width="stretch",
+                                key=f"{table_key}-editor-{state.get('editor_version', 0)}")
+    return clean_rows(edited.to_dict("records"))
+
+
+def apply_other_inputs(other_inputs: Dict[str, List[Dict[str, Any]]]) -> None:
+    """Hands each validated input to where it's used: file script to the File manager config,
+    users to the Security tab, the rest kept in session state for the scenario."""
+    state = st.session_state
+    state["custom_file_requests"] = [
+        {key: value for key, value in row.items() if value is not None} for row in other_inputs["file_script"]
+    ]
+    security = get_security_manager()
+    security.load([
+        User(user_id=row["user_id"], username=row["username"], role=str(row["role"]).upper(),
+             permissions=split_permissions(row["permissions"]))
+        for row in other_inputs["users"]
+    ])
+    for key in ("device_requests", "links", "packets", "failures"):
+        state[f"custom_{key}"] = other_inputs[key]
+
 def describe_config(config: RunConfig) -> str:
-    return "Add, edit, remove, import, and validate custom workloads and shared memory traces."
+    return ("Add, edit, remove, import, and validate custom workloads, memory traces, file scripts, users, "
+            "device requests, network links, packets and failure events.")
 
 VIEW = ManagerView(
     name="Scenario Builder",

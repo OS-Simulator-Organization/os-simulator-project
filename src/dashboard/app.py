@@ -7,12 +7,19 @@ from src.dashboard.manager_view import render_manager_tab, render_sidebar_sectio
 from src.core.controller import RealController
 from src.dashboard.views import VIEWS
 from src.dashboard.views.comparison import render_comparison
+from src.dashboard.event_explorer import render_event_explorer
+from src.dashboard.export import render_export
+from src.dashboard.overview import render_overview
+from src.dashboard.run_controls import render_simulation_settings
+from src.dashboard.testing_center import render_testing_center
 
 TABS = [
     "Overview",
     *[view.name for view in VIEWS],
     "Testing Center",
     "Comparison",
+    "Event Explorer",
+    "Export",
 ]
 
 
@@ -32,25 +39,6 @@ def render_sidebar(controller: ControllerAPI) -> None:
         st.divider()
         render_load_panel(controller)
 
-def render_overview() -> None:
-    st.subheader("OS Simulator Overview")
-    st.markdown("""
-    Welcome to the **OS Simulator**. This platform models operating system subsystems in real time and demonstrates cross-manager execution dynamics.
-
-    ### Subsystems Supported
-    * **Process Subsystem:** Models CPU scheduling algorithms (Round Robin, FCFS, Priority, SJF), context switching, and Gantt charts.
-    * **Memory Subsystem:** Simulates virtual memory paging, page fault handling, frame allocations, and replacement policies (FIFO, LRU).
-    * **File Subsystem:** Manages hierarchical file trees, permissions, file creation/deletion, and dynamic I/O request queues.
-    * **Event Engine:** Dispatches synchronized simulation ticks across all managers and streams real-time `EventRecord` logs.
-
-    ---
-    ### Quick Start
-    1. Select a **Scenario** (e.g., `baseline`) in the **Global** sidebar panel.
-    2. Click **Load and reset** to initialize the simulation engine.
-    3. Step or run the engine using the playback controls on any manager view.
-    """) 
-
-
 def render_placeholder(name: str) -> None:
     st.subheader(name)
     st.info(f"The {name} view is coming soon.")
@@ -64,15 +52,22 @@ def main() -> None:
     events = st.session_state.get("events", [])
 
     st.title("OS Simulator")
+    render_simulation_settings()
 
     views = {view.name: view for view in VIEWS}
     for tab, name in zip(st.tabs(TABS), TABS):
         with tab:
             if name == "Overview":
-                render_overview()
+                render_overview(controller, snapshot, events)
             elif name in views:
                 render_manager_tab(views[name], snapshot, events)
+            elif name == "Testing Center":
+                render_testing_center()
             elif name == "Comparison":
                 render_comparison()
+            elif name == "Event Explorer":
+                render_event_explorer(events)
+            elif name == "Export":
+                render_export(snapshot, events)
             else:
                 render_placeholder(name)

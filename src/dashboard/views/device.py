@@ -6,24 +6,11 @@ import pandas as pd
 import streamlit as st
 from src.core.controller_api import RunStatus, Snapshot, RunConfig
 from src.dashboard.manager_view import ManagerView
-
-AUTOPLAY = "device-autoplay"
-LAST_STEP = "device-last-step"
+from src.dashboard.run_controls import render_run_controls
 
 def render_device_sidebar():
     from src.dashboard.config_sidebar import render_device_settings
     render_device_settings()
-
-def _record(events: list) -> None:
-    st.session_state.events = [*st.session_state.get("events", []), *events]
-    st.rerun()
-
-@st.fragment(run_every=1)
-def _autoplay(controller) -> None:
-    if time.monotonic() - st.session_state.get(LAST_STEP, 0.0) < 0.9:
-        return
-    st.session_state[LAST_STEP] = time.monotonic()
-    _record(controller.step().events)
 
 def render(snapshot: Snapshot):
     st.subheader("Device Manager Workspace")
@@ -32,38 +19,7 @@ def render(snapshot: Snapshot):
     
     # Simulation Execution Controls
     if controller and hasattr(controller, "engine"):
-        can_advance = snapshot.status in (RunStatus.READY, RunStatus.PAUSED)
-        if not can_advance:
-            st.session_state[AUTOPLAY] = False
-        playing = st.session_state.get(AUTOPLAY, False)
-
-        with st.container(horizontal=True):
-            if st.button("", icon=":material/play_arrow:", key="device-run", disabled=not can_advance or playing,
-                         help="Run (one tick per second)"):
-                st.session_state[AUTOPLAY] = True
-                st.rerun()
-            if st.button("", icon=":material/pause:", key="device-pause", disabled=not playing, help="Pause"):
-                st.session_state[AUTOPLAY] = False
-                controller.pause()
-                st.rerun()
-            if st.button("", icon=":material/skip_next:", key="device-step", disabled=not can_advance or playing,
-                         help="Step (1 tick)"):
-                _record(controller.step().events)
-            if st.button("", icon=":material/fast_forward:", key="device-run-to-end", disabled=not can_advance,
-                         help="Run to completion"):
-                st.session_state[AUTOPLAY] = False
-                _record(controller.run().events)
-            if st.button("", icon=":material/replay:", key="device-reset",
-                         disabled=snapshot.status == RunStatus.NOT_LOADED, help="Reset"):
-                st.session_state[AUTOPLAY] = False
-                controller.reset()
-                st.session_state.events = []
-                st.rerun()
-
-        status = "running" if playing else snapshot.status.value
-        st.markdown(f"**Current Simulation Tick:** `{snapshot.tick} ms` · **Status:** `{status}`")
-        if playing:
-            _autoplay(controller)
+        render_run_controls(controller, snapshot, prefix="device")
 
     # Extract raw metrics safely
     raw_metrics = snapshot.metrics.get("Device", {}) if snapshot and snapshot.metrics else {}
@@ -200,4 +156,5 @@ VIEW = ManagerView(
     describe_config=describe_device_config,
     render_sidebar=render_device_sidebar,
     render_content=render,
+    test_files=("tests/test_device_manager.py",),
 )

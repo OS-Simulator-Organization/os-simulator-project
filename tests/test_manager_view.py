@@ -58,10 +58,21 @@ def test_regions_are_labeled():
     assert "**Process table**" in markdown
 
 
-def test_actions_are_disabled_until_wired_up():
+def test_process_tests_button_is_wired_up():
     buttons = run(render_tab, load=False, step=False).button
     assert [b.label for b in buttons] == ["Run process tests"]
-    assert buttons[0].disabled
+    assert not buttons[0].disabled
+
+
+def test_every_manager_tab_has_its_own_test_suite():
+    from pathlib import Path
+
+    root = Path(__file__).parent.parent
+    managers = {"Process", "Memory", "File", "Security", "Device", "Network"}
+    for view in VIEWS:
+        if view.manager in managers:
+            assert view.test_files, f"{view.name} has no test suite"
+            assert all((root / f).exists() for f in view.test_files), view.name
 
 # With the new METRIC_UNITS format, this test is no longer possible
 # def test_loaded_tab_shows_a_metric_per_key():
@@ -76,7 +87,7 @@ def test_event_log_shows_this_managers_events():
 
 
 def test_event_log_hides_other_managers_events():
-    app = run(render_tab, load=True, step=True, view="security")
+    app = run(render_tab, load=True, step=True, view="parallel")
     assert not app.dataframe
     assert "No events yet." in [c.value for c in app.caption]
 

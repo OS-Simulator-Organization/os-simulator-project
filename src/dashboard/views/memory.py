@@ -1,5 +1,3 @@
-import time
-
 import altair as alt
 import pandas as pd
 import streamlit as st
@@ -7,9 +5,8 @@ from src.core.controller_api import RunConfig, RunStatus, Snapshot
 from src.dashboard.config_sidebar import render_memory_settings
 from src.dashboard.manager_view import ManagerView
 from src.dashboard.memory_history import memory_history
+from src.dashboard.run_controls import render_run_controls
 
-AUTOPLAY = "memory-autoplay"
-LAST_STEP = "memory-last-step"
 HISTORY = "memory-history"
 
 PAGE_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
@@ -23,20 +20,6 @@ def describe_config(config: RunConfig) -> str:
     return f"Algorithm: {mem.algorithm.value} · Page size: {mem.page_size} bytes · Frames: {mem.total_frames} · Fault latency: {mem.fault_latency} ticks"
 
 
-def _record(events: list) -> None:
-    st.session_state.events = [*st.session_state.get("events", []), *events]
-    st.rerun()
-
-
-@st.fragment(run_every=1)
-def _autoplay(controller) -> None:
-    # Skip if step was triggered recently to keep ticks spaced apart
-    if time.monotonic() - st.session_state.get(LAST_STEP, 0.0) < 0.9:
-        return
-    st.session_state[LAST_STEP] = time.monotonic()
-    _record(controller.step().events)
-
-
 def render_memory_content(snapshot: Snapshot) -> None:
     controller = st.session_state.get("controller")
     mem_mgr = None
@@ -47,38 +30,7 @@ def render_memory_content(snapshot: Snapshot) -> None:
     
     # Simulation Execution Controls (matching process view style)
     if controller and hasattr(controller, "engine"):
-        can_advance = snapshot.status in (RunStatus.READY, RunStatus.PAUSED)
-        if not can_advance:
-            st.session_state[AUTOPLAY] = False
-        playing = st.session_state.get(AUTOPLAY, False)
-
-        with st.container(horizontal=True):
-            if st.button("", icon=":material/play_arrow:", key="memory-run", disabled=not can_advance or playing,
-                         help="Run (one tick per second)"):
-                st.session_state[AUTOPLAY] = True
-                st.rerun()
-            if st.button("", icon=":material/pause:", key="memory-pause", disabled=not playing, help="Pause"):
-                st.session_state[AUTOPLAY] = False
-                controller.pause()
-                st.rerun()
-            if st.button("", icon=":material/skip_next:", key="memory-step", disabled=not can_advance or playing,
-                         help="Step (1 tick)"):
-                _record(controller.step().events)
-            if st.button("", icon=":material/fast_forward:", key="memory-run-to-end", disabled=not can_advance,
-                         help="Run to completion"):
-                st.session_state[AUTOPLAY] = False
-                _record(controller.run().events)
-            if st.button("", icon=":material/replay:", key="memory-reset",
-                         disabled=snapshot.status == RunStatus.NOT_LOADED, help="Reset"):
-                st.session_state[AUTOPLAY] = False
-                controller.reset()
-                st.session_state.events = []
-                st.rerun()
-
-        status = "running" if playing else snapshot.status.value
-        st.markdown(f"**Current Simulation Tick:** `{snapshot.tick} ms` · **Status:** `{status}`")
-        if playing:
-            _autoplay(controller)
+        render_run_controls(controller, snapshot, prefix="memory")
 
     # Pull memory manager snapshot state
     mgr_state = mem_mgr.snapshot() if mem_mgr and hasattr(mem_mgr, "snapshot") else {}
@@ -224,5 +176,5 @@ VIEW = ManagerView(
     describe_config=describe_config,
     render_sidebar=render_memory_settings,
     render_content=render_memory_content,
-    test_files=("tests/test_file_memory_integration.py",),
+    test_files=("tests/test_memory_history.py", "tests/test_file_memory_integration.py"),
 )

@@ -6,21 +6,8 @@ from src.core.controller_api import RunStatus, Snapshot
 from src.dashboard.manager_view import ManagerView
 from src.dashboard.config_sidebar import render_network_sidebar, describe_network_config
 
-AUTOPLAY = "network-autoplay"
-LAST_STEP = "network-last-step"
-
-
-def _record(events: list) -> None:
-    st.session_state.events = [*st.session_state.get("events", []), *events]
-    st.rerun()
-
-
-@st.fragment(run_every=1)
-def _autoplay(controller) -> None:
-    if time.monotonic() - st.session_state.get(LAST_STEP, 0.0) < 0.9:
-        return
-    st.session_state[LAST_STEP] = time.monotonic()
-    _record(controller.step().events)
+from src.dashboard.network_topology import link_usage, topology_dot, usage_chart
+from src.dashboard.run_controls import render_run_controls
 
 
 def render_network_content(snapshot: Snapshot) -> None:
@@ -35,38 +22,7 @@ def render_network_content(snapshot: Snapshot) -> None:
 
     # Playback controls matching Process & Device views
     if controller and hasattr(controller, "engine"):
-        can_advance = snapshot.status in (RunStatus.READY, RunStatus.PAUSED)
-        if not can_advance:
-            st.session_state[AUTOPLAY] = False
-        playing = st.session_state.get(AUTOPLAY, False)
-
-        with st.container(horizontal=True):
-            if st.button("", icon=":material/play_arrow:", key="network-run", disabled=not can_advance or playing,
-                         help="Run (one tick per second)"):
-                st.session_state[AUTOPLAY] = True
-                st.rerun()
-            if st.button("", icon=":material/pause:", key="network-pause", disabled=not playing, help="Pause"):
-                st.session_state[AUTOPLAY] = False
-                controller.pause()
-                st.rerun()
-            if st.button("", icon=":material/skip_next:", key="network-step", disabled=not can_advance or playing,
-                         help="Step (1 tick)"):
-                _record(controller.step().events)
-            if st.button("", icon=":material/fast_forward:", key="network-run-to-end", disabled=not can_advance,
-                         help="Run to completion"):
-                st.session_state[AUTOPLAY] = False
-                _record(controller.run().events)
-            if st.button("", icon=":material/replay:", key="network-reset",
-                         disabled=snapshot.status == RunStatus.NOT_LOADED, help="Reset"):
-                st.session_state[AUTOPLAY] = False
-                controller.reset()
-                st.session_state.events = []
-                st.rerun()
-
-        status = "running" if playing else snapshot.status.value
-        st.markdown(f"**Current Simulation Tick:** `{snapshot.tick} ms` · **Status:** `{status}`")
-        if playing:
-            _autoplay(controller)
+        render_run_controls(controller, snapshot, prefix="network")
 
     raw_metrics = snapshot.metrics.get("Network", {}) if snapshot and snapshot.metrics else {}
 
@@ -109,6 +65,9 @@ def render_network_content(snapshot: Snapshot) -> None:
                             net_mgr.recover_link(edge)
                             st.rerun()
 
+    if nodes and links and net_mgr:
+        render_topology(net_mgr, nodes, links)
+
     st.markdown("---")
     q_col1, q_col2 = st.columns(2)
     with q_col1:
@@ -120,10 +79,36 @@ def render_network_content(snapshot: Snapshot) -> None:
         st.dataframe(pd.DataFrame(combined), hide_index=True, width="stretch")
 
 
+def render_topology(net_mgr, nodes: list, links: list) -> None:
+    with st.container(border=True):
+        st.markdown("**Network topology and selected route**")
+        source_col, dest_col = st.columns(2)
+        source = source_col.selectbox("Route from", nodes, key="network-route-source")
+        dest = dest_col.selectbox("Route to", nodes, index=len(nodes) - 1, key="network-route-dest")
+        route, cost = net_mgr.find_route(source, dest)
+        st.graphviz_chart(topology_dot(nodes, links, route))
+        if route:
+            st.caption(f"Selected route: {' → '.join(route)} (total latency {cost:g} ms). "
+                       "Thick blue links are the route; dashed links labeled DOWN have failed.")
+        else:
+            st.error(f"{dest} is unreachable from {source}: no route over links that are UP.")
+
+    with st.container(border=True):
+        st.markdown("**Link utilization**")
+        usage = link_usage(st.session_state.get("events", []), links)
+        if any(row["packets"] for row in usage):
+            st.altair_chart(usage_chart(usage), width="stretch")
+            with st.expander("Data table: link utilization"):
+                st.dataframe(usage, hide_index=True)
+        else:
+            st.caption("No packets delivered yet. Press Step or Run.")
+
+
 VIEW = ManagerView(
     name="Network",
     manager="Network",
     render_sidebar=render_network_sidebar,
     describe_config=describe_network_config,
     render_content=render_network_content,
+    test_files=("tests/test_network_manager.py",),
 )
