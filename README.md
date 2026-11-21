@@ -7,6 +7,22 @@ An interactive, multi-layered Operating System simulator built for OS class.
 - View the latest, live version of our simulator dashboard here: https://csc-301-os-simulator.streamlit.app
 - Deployed using [Streamlit Community Cloud](https://streamlit.io/cloud)
 
+## Managers
+
+| Manager | What it simulates |
+|---|---|
+| Process | FCFS, SJF, SRTF, Round Robin (quantum and context-switch cost), Priority with aging |
+| Memory | Paging with FIFO and LRU replacement and page-fault latency |
+| File System | Hierarchical in-memory file system with permissions |
+| Security | Users, roles, rwx permissions, login sessions, alerts, append-only audit log |
+| Device | Disk, printer and keyboard queues; FCFS, SSTF and SCAN disk scheduling; failure and recovery |
+| Network | Nodes, links and packets; FIFO and Priority queues; shortest-path routing with rerouting; buffers and drops |
+| Parallel | Planned for the final submission |
+
+## Dashboard
+
+Tabs: Overview, one workspace per manager, Scenario Builder, Testing Center, Comparison, Event Explorer and Export. Each manager tab has its own run, reset and test controls.
+
 ## Project Structure
 
 - `src/core/`: Shared data model, event schema, base manager, and simulation controller
@@ -16,6 +32,7 @@ An interactive, multi-layered Operating System simulator built for OS class.
 - `docs/`: Data model and event schema documentation
 - `tests/`: Automated unit and integration tests
 - `data/`: Baseline input CSV and JSON scenario files
+- `expected_results/`: Hand-worked expected values for the tests
 
 ## Setup Instructions
 
@@ -27,6 +44,20 @@ An interactive, multi-layered Operating System simulator built for OS class.
 4. Install dependencies: `pip install -r requirements.txt`
 5. Run unit tests: `pytest`
 6. Run the dashboard locally: `streamlit run streamlit_app.py`
+
+## Testing
+
+- The dashboard's Testing Center tab runs each manager's suite, the integration tests and the boundary cases, with pass/fail and expected vs. actual values.
+- `expected_results/` holds hand-worked values the tests check against. See its README.
+
+## Known Limitations
+
+- The parallel-computing component is not implemented yet.
+- The integrated acceptance scenario is not available yet.
+- The file manager cannot run a command script and has no `ls` or `rmdir` command yet.
+- Loading a workload from a file fails silently.
+- The Scenario Builder cannot import memory traces separately.
+- The Testing Center shows expected and actual values only for failed tests.
 
 ## Sourced Tools & GenAI Statement
 
