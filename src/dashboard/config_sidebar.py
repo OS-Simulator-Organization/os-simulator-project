@@ -20,6 +20,7 @@ from src.core.controller_api import(
     ReplacementAlgorithm,
     DiskPolicy,
     DeviceConfig,
+    FileConfig,
     NetworkPolicy,
     NetworkConfig
 )
@@ -140,6 +141,7 @@ def read_config() -> RunConfig:
             fault_latency=state.get(FAULT_LATENCY, 2),
             trace=state.get("custom_trace", []),
         ),
+        files=FileConfig(io_requests=state.get("custom_file_requests", [])),
         devices=DeviceConfig(disk_policy=disk_policy),
         network=NetworkConfig(queue_policy=network_policy),
     )

@@ -19,37 +19,20 @@
 # )
 
 import io
-import time
 
 import altair as alt
 import pandas as pd
 import streamlit as st
-from src.core.controller_api import RunConfig, RunStatus, Snapshot
+from src.core.controller_api import RunConfig, Snapshot
 from src.dashboard.config_sidebar import render_process_settings
 from src.dashboard.manager_view import ManagerView
-
-AUTOPLAY = "process-autoplay"
-LAST_STEP = "process-last-step"
-
+from src.dashboard.process_timeline import state_intervals, timeline_chart, transitions
+from src.dashboard.run_controls import render_run_controls
 
 def describe_config(config: RunConfig) -> str:
     process = config.process
     quantum = f"{process.quantum_ms} ms" if process.quantum_ms is not None else "–"
     return f"Policy: {process.policy.value} · Quantum: {quantum} · Context switch: {process.context_switch_ms} ms"
-
-
-def _record(events: list) -> None:
-    st.session_state.events = [*st.session_state.get("events", []), *events]
-    st.rerun()
-
-
-@st.fragment(run_every=1)
-def _autoplay(controller) -> None:
-    # The full rerun that each step triggers also calls this; skip it so steps stay a second apart.
-    if time.monotonic() - st.session_state.get(LAST_STEP, 0.0) < 0.9:
-        return
-    st.session_state[LAST_STEP] = time.monotonic()
-    _record(controller.step().events)
 
 
 def render_process_content(snapshot: Snapshot) -> str:
@@ -62,38 +45,7 @@ def render_process_content(snapshot: Snapshot) -> str:
     
     # Simulation Execution Controls
     if controller and hasattr(controller, "engine"):
-        can_advance = snapshot.status in (RunStatus.READY, RunStatus.PAUSED)
-        if not can_advance:
-            st.session_state[AUTOPLAY] = False
-        playing = st.session_state.get(AUTOPLAY, False)
-
-        with st.container(horizontal=True):
-            if st.button("", icon=":material/play_arrow:", key="process-run", disabled=not can_advance or playing,
-                         help="Run (one tick per second)"):
-                st.session_state[AUTOPLAY] = True
-                st.rerun()
-            if st.button("", icon=":material/pause:", key="process-pause", disabled=not playing, help="Pause"):
-                st.session_state[AUTOPLAY] = False
-                controller.pause()
-                st.rerun()
-            if st.button("", icon=":material/skip_next:", key="process-step", disabled=not can_advance or playing,
-                         help="Step (1 tick)"):
-                _record(controller.step().events)
-            if st.button("", icon=":material/fast_forward:", key="process-run-to-end", disabled=not can_advance,
-                         help="Run to completion"):
-                st.session_state[AUTOPLAY] = False
-                _record(controller.run().events)
-            if st.button("", icon=":material/replay:", key="process-reset",
-                         disabled=snapshot.status == RunStatus.NOT_LOADED, help="Reset"):
-                st.session_state[AUTOPLAY] = False
-                controller.reset()
-                st.session_state.events = []
-                st.rerun()
-
-        status = "running" if playing else snapshot.status.value
-        st.markdown(f"**Current Simulation Tick:** `{snapshot.tick} ms` · **Status:** `{status}`")
-        if playing:
-            _autoplay(controller)
+        render_run_controls(controller, snapshot, prefix="process")
 
     # Pull process manager state snapshot
     mgr_state = proc_mgr.snapshot() if proc_mgr and hasattr(proc_mgr, "snapshot") else {}
@@ -130,10 +82,27 @@ def render_process_content(snapshot: Snapshot) -> str:
                 # fit-x keeps the 60 px for the bar row; Streamlit's default "fit" would shrink it to nothing.
                 autosize=alt.AutoSizeParams(type="fit-x", contains="padding")),
                 width="stretch")
+            with st.expander("Data table: CPU Gantt chart"):
+                st.dataframe(intervals[["start", "end", "label"]], hide_index=True)
         else:
             st.caption("No CPU execution recorded yet. Press Step or Run.")
 
-    # Region 2: Process Table & Ready Queue
+    # Region 2: Process state timeline (Running -> Blocked -> Ready, with the blocked reason)
+    with st.container(border=True):
+        st.markdown("**Process state timeline**")
+        events = st.session_state.get("events", [])
+        intervals = state_intervals(events, now=snapshot.tick)
+        if intervals:
+            st.altair_chart(timeline_chart(intervals), width="stretch")
+            st.caption("Blocked stretches show which manager blocked the process in the tooltip and tables.")
+            with st.expander("Data table: time in each state"):
+                st.dataframe(intervals, hide_index=True)
+            st.markdown("##### State transitions")
+            st.dataframe(transitions(events), hide_index=True)
+        else:
+            st.caption("No state changes yet. Press Step or Run.")
+
+    # Region 3: Process Table & Ready Queue
     with st.container(border=True):
         st.markdown("**Process table**")
         workload_data = mgr_state.get("workload", [])
@@ -146,7 +115,7 @@ def render_process_content(snapshot: Snapshot) -> str:
 VIEW = ManagerView(
     name="Process",
     manager="Process",
-    regions=("CPU Gantt chart", "Process table"),
+    regions=("CPU Gantt chart", "Process state timeline", "Process table"),
     actions=("Run process tests",),
     describe_config=describe_config,
     render_sidebar=render_process_settings,

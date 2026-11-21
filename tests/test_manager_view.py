@@ -76,7 +76,7 @@ def test_event_log_shows_this_managers_events():
 
 
 def test_event_log_hides_other_managers_events():
-    app = run(render_tab, load=True, step=True, view="security")
+    app = run(render_tab, load=True, step=True, view="parallel")
     assert not app.dataframe
     assert "No events yet." in [c.value for c in app.caption]
 
