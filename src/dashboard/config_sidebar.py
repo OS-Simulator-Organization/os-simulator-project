@@ -15,10 +15,13 @@ from src.core.controller_api import(
     MemoryConfig,
     RunConfig,
     RunStatus,
+    Snapshot,
     SchedulingPolicy,
     ReplacementAlgorithm,
     DiskPolicy,
-    DeviceConfig
+    DeviceConfig,
+    NetworkPolicy,
+    NetworkConfig
 )
 
 SEED = "seed"
@@ -58,6 +61,24 @@ DISK_POLICY_LABELS = {
 }
 DISK_POLICIES_BY_LABEL = {label: policy for policy, label in DISK_POLICY_LABELS.items()}
 
+NETWORK_POLICY = "network_policy"
+NETWORK_POLICY_LABELS = {
+    NetworkPolicy.FIFO: "FIFO (First in, first out)",
+    NetworkPolicy.PRIORITY: "Priority queuing",
+}
+NETWORK_POLICIES_BY_LABEL = {label: policy for policy, label in NETWORK_POLICY_LABELS.items()}
+
+
+def render_network_settings() -> None:
+    st.selectbox("Network queue policy", list(NETWORK_POLICIES_BY_LABEL), key=NETWORK_POLICY)
+
+def render_network_sidebar() -> None:
+    render_network_settings()
+
+
+def describe_network_config(config: RunConfig) -> str:
+    policy = config.network.queue_policy.value
+    return f"Queue policy: {policy} · Buffer capacity: {config.network.buffer_capacity}"
 
 def render_global_settings() -> None:
     if "pending_scenario" in st.session_state:
@@ -99,6 +120,9 @@ def read_config() -> RunConfig:
     disk_label = state.get(DISK_POLICY, DISK_POLICY_LABELS[DiskPolicy.FCFS])
     disk_policy = DISK_POLICIES_BY_LABEL[disk_label]
 
+    net_label = state.get(NETWORK_POLICY, NETWORK_POLICY_LABELS[NetworkPolicy.FIFO])
+    network_policy = NETWORK_POLICIES_BY_LABEL[net_label]
+
     return RunConfig(
         seed=state.get(SEED, 0),
         scenario_id=state.get(SCENARIO, SCENARIOS[0]),
@@ -116,7 +140,8 @@ def read_config() -> RunConfig:
             fault_latency=state.get(FAULT_LATENCY, 2),
             trace=state.get("custom_trace", []),
         ),
-        devices=DeviceConfig(disk_policy=disk_policy)
+        devices=DeviceConfig(disk_policy=disk_policy),
+        network=NetworkConfig(queue_policy=network_policy),
     )
 
 

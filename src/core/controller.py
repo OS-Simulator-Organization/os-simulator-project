@@ -91,6 +91,7 @@ class SimulationController:
         file_mgr = self.get_manager("File")
         dev_mgr = self.get_manager("Device")
         sec_mgr = self.get_manager("Security")
+        net_mgr = self.get_manager("Network")
 
         # Step Process Manager
         if proc_mgr:
@@ -153,8 +154,7 @@ class SimulationController:
             if evt.event_type == "DEVICE_BLOCKED" and proc_mgr:
                 new_events.extend(proc_mgr.block_process(evt.entity_id, evt.manager))
             elif evt.event_type == "DEVICE_COMPLETED" and proc_mgr:
-                if evt.entity_id in proc_mgr.workload or True:  
-                    new_events.extend(proc_mgr.unblock_process(evt.entity_id, evt.manager))
+                new_events.extend(proc_mgr.unblock_process(evt.entity_id, evt.manager))
         
         if evt.timestamp > self.clock:
             self.schedule_event(evt)
@@ -242,12 +242,14 @@ class RealController:
         from src.managers.file_manager import FileManager
         from src.managers.DeviceManager import DeviceManager
         from src.managers.SecurityManager import SecurityManager
+        from src.managers.NetworkManager import NetworkManager
         
         self.engine.register_manager(ProcessManager())
         self.engine.register_manager(MemoryManager())
         self.engine.register_manager(FileManager())
         self.engine.register_manager(DeviceManager())
         self.engine.register_manager(SecurityManager())
+        self.engine.register_manager(NetworkManager())
 
         self.current_config: Optional[RunConfig] = None
         self.run_id: Optional[str] = None

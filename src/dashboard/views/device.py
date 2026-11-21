@@ -4,7 +4,7 @@ import time
 import altair as alt
 import pandas as pd
 import streamlit as st
-from src.core.controller_api import RunStatus, Snapshot
+from src.core.controller_api import RunStatus, Snapshot, RunConfig
 from src.dashboard.manager_view import ManagerView
 
 AUTOPLAY = "device-autoplay"
@@ -189,9 +189,15 @@ def render(snapshot: Snapshot):
     else:
         st.caption("No completed request timelines available yet.")
 
+def describe_device_config(config: RunConfig) -> str:
+    devices_cfg = getattr(config, "devices", None)
+    policy = devices_cfg.disk_policy.value if devices_cfg and getattr(devices_cfg, "disk_policy", None) else "FCFS"
+    return f"Disk policy: {policy}"
+
 VIEW = ManagerView(
     name="Device",
     manager="Device",
+    describe_config=describe_device_config,
     render_sidebar=render_device_sidebar,
     render_content=render,
 )
