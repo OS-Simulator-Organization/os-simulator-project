@@ -1,0 +1,61 @@
+{
+  "method": "hand-worked",
+  "script": "data/fs_script.txt",
+  "error_codes": {
+    "already_exists": "A file or directory with that name exists",
+    "not_found": "The path or its parent does not exist",
+    "is_a_directory": "A file command was given a directory",
+    "not_a_directory": "A directory command, or a path component, is a file",
+    "directory_not_empty": "rmdir on a directory that still has children",
+    "cannot_remove_root": "rmdir on /"
+  },
+  "steps": [
+    {"command": "mkdir /docs", "ok": true},
+    {"command": "mkfile /docs/notes.txt", "ok": true},
+    {"command": "write /docs/notes.txt \"hello\"", "ok": true, "bytes_written": 5},
+    {"command": "append /docs/notes.txt \" world\"", "ok": true, "bytes_written": 6},
+    {"command": "cat /docs/notes.txt", "ok": true, "output": "hello world", "bytes_read": 11},
+    {"command": "ls /docs", "ok": true, "output": ["notes.txt"]},
+    {"command": "mkdir /docs", "ok": false, "error": "already_exists"},
+    {"command": "mkfile /docs/notes.txt", "ok": false, "error": "already_exists"},
+    {"command": "mkfile /missing/a.txt", "ok": false, "error": "not_found"},
+    {"command": "cat /docs", "ok": false, "error": "is_a_directory"},
+    {"command": "cat /docs/none.txt", "ok": false, "error": "not_found"},
+    {"command": "write /docs \"x\"", "ok": false, "error": "is_a_directory"},
+    {"command": "append /docs/none.txt \"x\"", "ok": false, "error": "not_found"},
+    {"command": "ls /docs/notes.txt", "ok": false, "error": "not_a_directory"},
+    {"command": "ls /missing", "ok": false, "error": "not_found"},
+    {"command": "rmdir /docs", "ok": false, "error": "directory_not_empty"},
+    {"command": "rmdir /docs/notes.txt", "ok": false, "error": "not_a_directory"},
+    {"command": "rm /docs", "ok": false, "error": "is_a_directory"},
+    {"command": "rm /missing.txt", "ok": false, "error": "not_found"},
+    {"command": "mkdir /docs/notes.txt/sub", "ok": false, "error": "not_a_directory"},
+    {"command": "rmdir /", "ok": false, "error": "cannot_remove_root"},
+    {"command": "mkdir /projects/", "ok": true},
+    {"command": "mkfile /projects/./a.txt", "ok": true},
+    {"command": "write /projects/../projects/a.txt \"abc\"", "ok": true, "bytes_written": 3},
+    {"command": "cat /projects/a.txt", "ok": true, "output": "abc", "bytes_read": 3},
+    {"command": "cat /../projects/a.txt", "ok": true, "output": "abc", "bytes_read": 3},
+    {"command": "write /projects/a.txt \"xy\"", "ok": true, "bytes_written": 2},
+    {"command": "cat /projects/a.txt", "ok": true, "output": "xy", "bytes_read": 2},
+    {"command": "rm /docs/notes.txt", "ok": true},
+    {"command": "rmdir /docs", "ok": true},
+    {"command": "ls /", "ok": true, "output": ["projects"]}
+  ],
+  "totals": {
+    "commands": 31,
+    "successful": 16,
+    "failed": 15,
+    "bytes_read": 19,
+    "bytes_written": 16,
+    "files_created": 2,
+    "directories_created": 2,
+    "files_deleted": 1,
+    "directories_deleted": 1
+  },
+  "final_tree": {
+    "/": {"is_dir": true},
+    "/projects": {"is_dir": true},
+    "/projects/a.txt": {"is_dir": false, "size": 2, "content": "xy"}
+  }
+}

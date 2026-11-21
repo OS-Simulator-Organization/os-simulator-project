@@ -1,0 +1,42 @@
+# File-system test script: one shell-style command per line. Blank lines and lines starting with # are ignored.
+# Commands: mkdir, ls, mkfile, write, append, cat, rm, rmdir. Quote text that contains spaces.
+# Expected result of each command: expected_results/file_system.json
+
+# Normal use, including the /docs/notes.txt sequence
+mkdir /docs
+mkfile /docs/notes.txt
+write /docs/notes.txt "hello"
+append /docs/notes.txt " world"
+cat /docs/notes.txt
+ls /docs
+
+# Errors: each one must fail without changing the file system
+mkdir /docs
+mkfile /docs/notes.txt
+mkfile /missing/a.txt
+cat /docs
+cat /docs/none.txt
+write /docs "x"
+append /docs/none.txt "x"
+ls /docs/notes.txt
+ls /missing
+rmdir /docs
+rmdir /docs/notes.txt
+rm /docs
+rm /missing.txt
+mkdir /docs/notes.txt/sub
+rmdir /
+
+# Path normalization and overwriting
+mkdir /projects/
+mkfile /projects/./a.txt
+write /projects/../projects/a.txt "abc"
+cat /projects/a.txt
+cat /../projects/a.txt
+write /projects/a.txt "xy"
+cat /projects/a.txt
+
+# Safe deletion once the directory is empty
+rm /docs/notes.txt
+rmdir /docs
+ls /
